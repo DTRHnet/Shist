@@ -15,7 +15,7 @@ export default function LocalLogin() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: { email: string; name: string }) => {
-      return await apiRequest('/api/auth/local-login', 'POST', data);
+      return await apiRequest('/api/auth/local-auth', 'POST', data);
     },
     onSuccess: () => {
       toast({
