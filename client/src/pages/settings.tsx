@@ -2,14 +2,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useMonetization } from "@/hooks/useMonetization";
 import type { User } from "@shared/schema";
-import { User as UserIcon, Crown, LogOut, Shield, Bell, Smartphone } from "lucide-react";
+import { User as UserIcon, Crown, LogOut, Shield, Bell, Smartphone, Star, Gift } from "lucide-react";
 
 export default function Settings() {
   const { user } = useAuth() as { user: User | undefined };
+  const { isPremium, upgradeToPremium, resetPremium, adCount } = useMonetization();
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
+  };
+
+  const handlePremiumToggle = () => {
+    if (isPremium) {
+      resetPremium();
+    } else {
+      upgradeToPremium();
+    }
   };
 
   return (
@@ -56,23 +66,74 @@ export default function Settings() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-medium text-gray-900">Free Plan</h3>
-                <p className="text-sm text-gray-500">Basic features included</p>
+                <h3 className="font-medium text-gray-900">
+                  {isPremium ? "Premium Plan" : "Free Plan"}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {isPremium ? "All premium features unlocked" : "Basic features included"}
+                </p>
+                {!isPremium && adCount > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {adCount} ads shown so far
+                  </p>
+                )}
               </div>
-              <Badge variant="outline">Free</Badge>
+              <Badge variant={isPremium ? "default" : "outline"} className={isPremium ? "bg-gradient-to-r from-yellow-400 to-orange-500" : ""}>
+                {isPremium ? (
+                  <><Star className="mr-1" size={12} />Premium</>
+                ) : (
+                  "Free"
+                )}
+              </Badge>
             </div>
-            <div className="mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">Upgrade to Premium</h4>
-              <ul className="text-sm text-gray-600 space-y-1 mb-3">
-                <li>• Remove all advertisements</li>
-                <li>• Unlimited lists and connections</li>
-                <li>• Priority customer support</li>
-                <li>• Advanced collaboration features</li>
-              </ul>
-              <Button size="sm" className="w-full">
-                Upgrade Now
-              </Button>
-            </div>
+            
+            {!isPremium ? (
+              <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-2 border-blue-100">
+                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                  <Gift className="mr-2" size={16} />
+                  Upgrade to Premium
+                </h4>
+                <ul className="text-sm text-gray-600 space-y-1 mb-3">
+                  <li>• Remove all advertisements</li>
+                  <li>• Unlimited lists and connections</li>
+                  <li>• Priority real-time sync</li>
+                  <li>• Advanced collaboration features</li>
+                  <li>• Premium customer support</li>
+                </ul>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-lg font-bold text-gray-900">$2.99/month</span>
+                  <span className="text-sm text-gray-500 line-through">$4.99</span>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  onClick={handlePremiumToggle}
+                  data-testid="button-upgrade-premium"
+                >
+                  <Star className="mr-2" size={16} />
+                  Upgrade Now - 40% Off!
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border-2 border-yellow-200">
+                <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                  <Crown className="mr-2" size={16} />
+                  Premium Active
+                </h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Enjoy ad-free experience and all premium features!
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="w-full"
+                  onClick={handlePremiumToggle}
+                  data-testid="button-reset-premium"
+                >
+                  Simulate Free Account (Demo)
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

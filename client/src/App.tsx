@@ -4,7 +4,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { useMonetization } from "@/hooks/useMonetization";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
+import { PopupAd } from "@/components/monetization/popup-ad";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Lists from "@/pages/lists";
@@ -18,6 +20,7 @@ const isLocalDev = !import.meta.env.VITE_REPL_ID || import.meta.env.VITE_LOCAL_D
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { showAd, closeAd, isPremium } = useMonetization();
 
   return (
     <div className="max-w-md mx-auto bg-white min-h-screen relative">
@@ -58,6 +61,9 @@ function Router() {
       </Switch>
       
       {isAuthenticated && !isLoading && <BottomNavigation />}
+      
+      {/* Monetization - Popup ads for free users only */}
+      {!isPremium && <PopupAd isOpen={showAd} onClose={closeAd} />}
     </div>
   );
 }
