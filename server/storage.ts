@@ -21,15 +21,21 @@ import {
 const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
 
 let db: any;
-if (isLocalDev) {
-  console.log("Using local PostgreSQL database");
-  const { db: localDb } = await import("./localDb");
-  db = localDb;
-} else {
-  console.log("Using Neon serverless database");
-  const { db: neonDb } = await import("./db");
-  db = neonDb;
+
+async function initializeDatabase() {
+  if (isLocalDev) {
+    console.log("Using local PostgreSQL database");
+    const { db: localDb } = await import("./localDb");
+    return localDb;
+  } else {
+    console.log("Using Neon serverless database");
+    const { db: neonDb } = await import("./db");
+    return neonDb;
+  }
 }
+
+// Initialize database connection
+db = await initializeDatabase();
 
 import { eq, and, or, desc, sql } from "drizzle-orm";
 
@@ -236,11 +242,11 @@ export class DatabaseStorage implements IStorage {
       result.push({
         ...row.list,
         creator: row.creator!,
-        participants: participants.map(p => ({
+        participants: participants.map((p: any) => ({
           ...p.list_participants,
           user: p.users!,
         })),
-        items: items.map(i => ({
+        items: items.map((i: any) => ({
           ...i.list_items,
           addedBy: i.users!,
         })),
@@ -280,11 +286,11 @@ export class DatabaseStorage implements IStorage {
     return {
       ...listResult.lists,
       creator: listResult.users!,
-      participants: participants.map(p => ({
+      participants: participants.map((p: any) => ({
         ...p.list_participants,
         user: p.users!,
       })),
-      items: items.map(i => ({
+      items: items.map((i: any) => ({
         ...i.list_items,
         addedBy: i.users!,
       })),
@@ -392,7 +398,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(listItems.listId, listId))
       .orderBy(desc(listItems.createdAt));
 
-    return items.map(item => ({
+    return items.map((item: any) => ({
       ...item.list_items,
       addedBy: item.users!,
     }));

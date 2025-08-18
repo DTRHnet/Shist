@@ -50,8 +50,8 @@ export async function setupLocalAuth(app: Express) {
   // Create default account if it doesn't exist (with delay for DB initialization)
   setTimeout(createDefaultAccount, 2000);
 
-  // Simple local auth routes
-  app.post('/api/auth/local-login', async (req, res) => {
+  // Simple local auth routes (with alias for compatibility)
+  const localLoginHandler = async (req: any, res: any) => {
     try {
       const { email, name } = req.body;
       
@@ -90,7 +90,10 @@ export async function setupLocalAuth(app: Express) {
       console.error("Local auth error:", error);
       res.status(500).json({ message: "Authentication failed" });
     }
-  });
+  };
+
+  app.post('/api/auth/local-login', localLoginHandler);
+  app.post('/api/auth/local-auth', localLoginHandler); // Alias for compatibility
 
   app.post('/api/auth/logout', (req, res) => {
     req.session.destroy((err) => {
