@@ -50,6 +50,46 @@ export async function setupLocalAuth(app: Express) {
   // Create default account if it doesn't exist (with delay for DB initialization)
   setTimeout(createDefaultAccount, 2000);
 
+  // Auto-login endpoint that automatically logs in with demo account
+  app.post('/api/auth/auto-login', async (req: any, res: any) => {
+    try {
+      const defaultEmail = "demo@shist.local";
+      
+      // Get or create the demo user
+      let user = await storage.getUserByEmail(defaultEmail);
+      
+      if (!user) {
+        user = await storage.upsertUser({
+          id: 'default-user',
+          email: defaultEmail,
+          firstName: 'Demo',
+          lastName: 'User',
+          profileImageUrl: null,
+        });
+      }
+
+      // Set up session in the same format as local login
+      (req.session as any).user = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          profile_image_url: user.profileImageUrl
+        },
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
+      };
+
+      res.json({ 
+        message: "Auto-login successful", 
+        user: user 
+      });
+    } catch (error) {
+      console.error("Auto-login error:", error);
+      res.status(500).json({ message: "Auto-login failed" });
+    }
+  });
+
   // Simple local auth routes (with alias for compatibility)
   const localLoginHandler = async (req: any, res: any) => {
     try {
