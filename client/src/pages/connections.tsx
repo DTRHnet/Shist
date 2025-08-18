@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import type { User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { InviteModal } from "@/components/connections/invite-modal";
@@ -11,7 +12,7 @@ import { Users, UserPlus, Check, X } from "lucide-react";
 import { isUnauthorizedError } from "@/lib/authUtils";
 
 export default function Connections() {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | undefined };
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -97,7 +98,7 @@ export default function Connections() {
                 </Card>
               ))}
             </div>
-          ) : pendingInvitations.length === 0 ? (
+          ) : (pendingInvitations as any[]).length === 0 ? (
             <Card>
               <CardContent className="p-6 text-center">
                 <UserPlus className="mx-auto text-gray-400 mb-4" size={48} />
@@ -109,7 +110,7 @@ export default function Connections() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {pendingInvitations.map((invitation) => {
+              {(pendingInvitations as any[]).map((invitation: any) => {
                 const requester = invitation.requester;
                 const initial = (requester.firstName?.[0] || requester.email?.[0] || '?').toUpperCase();
                 
@@ -175,7 +176,7 @@ export default function Connections() {
                 </Card>
               ))}
             </div>
-          ) : connections.length === 0 ? (
+          ) : (connections as any[]).length === 0 ? (
             <Card>
               <CardContent className="p-6 text-center">
                 <Users className="mx-auto text-gray-400 mb-4" size={48} />
@@ -190,7 +191,7 @@ export default function Connections() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {connections.map((connection) => {
+              {(connections as any[]).map((connection: any) => {
                 const otherUser = connection.requesterId === user?.id 
                   ? connection.addressee 
                   : connection.requester;

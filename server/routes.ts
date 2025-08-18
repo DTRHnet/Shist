@@ -34,7 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { addresseeEmail } = req.body;
 
       // Find addressee by email
-      const addressee = await storage.getUserByEmail?.(addresseeEmail);
+      const addressee = await storage.getUserByEmail(addresseeEmail);
       if (!addressee) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -288,12 +288,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     ws.on('close', () => {
       // Remove from all subscriptions
-      for (const [listId, subscribers] of listSubscriptions) {
+      listSubscriptions.forEach((subscribers, listId) => {
         subscribers.delete(ws);
         if (subscribers.size === 0) {
           listSubscriptions.delete(listId);
         }
-      }
+      });
     });
   });
 

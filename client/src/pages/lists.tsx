@@ -16,11 +16,11 @@ export default function Lists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPrivacy, setFilterPrivacy] = useState<"all" | "public" | "private">("all");
 
-  const { data: lists = [], isLoading } = useQuery({
+  const { data: lists = [], isLoading } = useQuery<ListWithDetails[]>({
     queryKey: ["/api/lists"],
   });
 
-  const filteredLists = lists.filter((list: ListWithDetails) => {
+  const filteredLists = (lists as ListWithDetails[]).filter((list: ListWithDetails) => {
     const matchesSearch = list.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          list.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterPrivacy === "all" || 

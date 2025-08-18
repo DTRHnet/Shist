@@ -3,22 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import type { User } from "@shared/schema";
 import { useState } from "react";
 import { ListDetailModal } from "@/components/lists/list-detail-modal";
 import { CreateListModal } from "@/components/lists/create-list-modal";
 import { InviteModal } from "@/components/connections/invite-modal";
 import { AdPlacement } from "@/components/ui/ad-placement";
-import { Plus, Music, Film, Gift, Users, UserPlus, Bell } from "lucide-react";
+import { Plus, Music, Film, Gift, Users, UserPlus, Bell, List } from "lucide-react";
 import type { ListWithDetails } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | undefined };
   const [selectedList, setSelectedList] = useState<ListWithDetails | null>(null);
   const [showCreateList, setShowCreateList] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  const { data: lists = [], isLoading: listsLoading } = useQuery({
+  const { data: lists = [], isLoading: listsLoading } = useQuery<ListWithDetails[]>({
     queryKey: ["/api/lists"],
   });
 
@@ -53,9 +54,9 @@ export default function Home() {
             data-testid="button-notifications"
           >
             <Bell size={20} />
-            {pendingInvitations.length > 0 && (
+            {(pendingInvitations as any[]).length > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {pendingInvitations.length}
+                {(pendingInvitations as any[]).length}
               </span>
             )}
           </button>
@@ -115,7 +116,7 @@ export default function Home() {
                 </Card>
               ))}
             </div>
-          ) : lists.length === 0 ? (
+          ) : (lists as ListWithDetails[]).length === 0 ? (
             <Card>
               <CardContent className="p-6 text-center">
                 <List className="mx-auto text-gray-400 mb-4" size={48} />
@@ -130,7 +131,7 @@ export default function Home() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {lists.map((list: ListWithDetails) => (
+              {(lists as ListWithDetails[]).map((list: ListWithDetails) => (
                 <Card 
                   key={list.id} 
                   className="hover:shadow-md transition-shadow cursor-pointer"
@@ -188,7 +189,7 @@ export default function Home() {
             </Button>
           </div>
 
-          {connections.length === 0 ? (
+          {(connections as any[]).length === 0 ? (
             <Card>
               <CardContent className="p-6 text-center">
                 <Users className="mx-auto text-gray-400 mb-4" size={48} />
@@ -203,7 +204,7 @@ export default function Home() {
             </Card>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {connections.map((connection) => {
+              {(connections as any[]).map((connection: any) => {
                 const otherUser = connection.requesterId === user?.id 
                   ? connection.addressee 
                   : connection.requester;

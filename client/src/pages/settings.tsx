@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { User, Crown, LogOut, Shield, Bell, Smartphone } from "lucide-react";
+import type { User } from "@shared/schema";
+import { User as UserIcon, Crown, LogOut, Shield, Bell, Smartphone } from "lucide-react";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | undefined };
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
@@ -23,7 +24,7 @@ export default function Settings() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <User className="mr-2" size={20} />
+              <UserIcon className="mr-2" size={20} />
               Profile
             </CardTitle>
           </CardHeader>

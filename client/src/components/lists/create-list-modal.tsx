@@ -69,7 +69,7 @@ export function CreateListModal({ isOpen, onClose }: CreateListModalProps) {
 
     createListMutation.mutate({
       name: formData.name.trim(),
-      description: formData.description.trim() || undefined,
+      description: formData.description.trim() || "",
       isPublic: formData.isPublic,
     });
   };

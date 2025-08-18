@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import type { User } from "@shared/schema";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -21,7 +22,7 @@ interface ListDetailModalProps {
 }
 
 export function ListDetailModal({ list, isOpen, onClose }: ListDetailModalProps) {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | undefined };
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newItemContent, setNewItemContent] = useState("");
