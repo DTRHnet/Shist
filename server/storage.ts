@@ -98,11 +98,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserConnections(userId: string): Promise<UserConnection[]> {
+    // First get all accepted connections for the user
     const userConnections = await db
       .select()
       .from(connections)
-      .leftJoin(users, eq(connections.requesterId, users.id))
-      .leftJoin(users, eq(connections.addresseeId, users.id))
       .where(
         and(
           or(
@@ -113,19 +112,27 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    return userConnections.map(row => ({
-      ...row.connections,
-      requester: row.users!,
-      addressee: row.users!,
-    }));
+    // Then fetch user details for each connection
+    const result: UserConnection[] = [];
+    for (const connection of userConnections) {
+      const [requester] = await db.select().from(users).where(eq(users.id, connection.requesterId));
+      const [addressee] = await db.select().from(users).where(eq(users.id, connection.addresseeId));
+      
+      result.push({
+        ...connection,
+        requester: requester!,
+        addressee: addressee!,
+      });
+    }
+
+    return result;
   }
 
   async getPendingInvitations(userId: string): Promise<UserConnection[]> {
+    // First get all pending invitations for the user
     const pendingInvitations = await db
       .select()
       .from(connections)
-      .leftJoin(users, eq(connections.requesterId, users.id))
-      .leftJoin(users, eq(connections.addresseeId, users.id))
       .where(
         and(
           eq(connections.addresseeId, userId),
@@ -133,11 +140,20 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    return pendingInvitations.map(row => ({
-      ...row.connections,
-      requester: row.users!,
-      addressee: row.users!,
-    }));
+    // Then fetch user details for each invitation
+    const result: UserConnection[] = [];
+    for (const invitation of pendingInvitations) {
+      const [requester] = await db.select().from(users).where(eq(users.id, invitation.requesterId));
+      const [addressee] = await db.select().from(users).where(eq(users.id, invitation.addresseeId));
+      
+      result.push({
+        ...invitation,
+        requester: requester!,
+        addressee: addressee!,
+      });
+    }
+
+    return result;
   }
 
   async getConnectionByUsers(requesterId: string, addresseeId: string): Promise<Connection | undefined> {
