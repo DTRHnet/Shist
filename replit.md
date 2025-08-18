@@ -98,4 +98,4 @@ For local Linux deployment, the project includes automated installation scripts:
 - **start.sh** - Loads environment, runs migrations, and starts the application with monitoring
 - **stop.sh** - Generated automatically for clean shutdown
 
-The scripts support Ubuntu/Debian, Fedora/CentOS/RHEL, and Arch/Manjaro distributions with automatic package management and database configuration.
+The scripts support Ubuntu/Debian/Kali, Fedora/CentOS/RHEL, and Arch/Manjaro distributions with automatic package management and database configuration.

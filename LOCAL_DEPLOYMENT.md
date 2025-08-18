@@ -4,7 +4,7 @@ This guide helps you deploy Shist on your local Linux machine using the provided
 
 ## Prerequisites
 
-- A Linux machine running Ubuntu/Debian, Fedora/CentOS/RHEL, or Arch/Manjaro
+- A Linux machine running Ubuntu/Debian/Kali, Fedora/CentOS/RHEL, or Arch/Manjaro
 - Internet connection for downloading packages
 - Sudo privileges for installing system packages
 
@@ -34,7 +34,7 @@ This guide helps you deploy Shist on your local Linux machine using the provided
 The installation script automatically:
 
 ### System Detection
-- Detects your Linux distribution (Ubuntu/Debian, Fedora/CentOS/RHEL, Arch/Manjaro)
+- Detects your Linux distribution (Ubuntu/Debian/Kali, Fedora/CentOS/RHEL, Arch/Manjaro)
 - Installs distribution-specific packages
 
 ### Software Installation

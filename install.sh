@@ -42,6 +42,12 @@ detect_distro() {
         error "Cannot detect Linux distribution"
     fi
     
+    # Handle Kali Linux specifically
+    if [[ "$DISTRO" == "kali" ]]; then
+        log "Detected Kali Linux - using Debian-based package management"
+        DISTRO="debian"  # Treat Kali as Debian for package management
+    fi
+    
     log "Detected distribution: $DISTRO $VERSION"
 }
 
@@ -62,7 +68,7 @@ install_nodejs() {
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     
     case $DISTRO in
-        ubuntu|debian)
+        ubuntu|debian|kali)
             sudo apt-get install -y nodejs
             ;;
         fedora|centos|rhel)
@@ -84,7 +90,7 @@ install_python() {
     log "Installing Python3 with venv..."
     
     case $DISTRO in
-        ubuntu|debian)
+        ubuntu|debian|kali)
             sudo apt-get update
             sudo apt-get install -y python3 python3-venv python3-pip
             ;;
@@ -107,7 +113,7 @@ install_postgresql() {
     log "Installing PostgreSQL..."
     
     case $DISTRO in
-        ubuntu|debian)
+        ubuntu|debian|kali)
             sudo apt-get install -y postgresql postgresql-contrib
             ;;
         fedora|centos|rhel)
@@ -141,7 +147,7 @@ install_build_tools() {
     log "Installing build tools and dependencies..."
     
     case $DISTRO in
-        ubuntu|debian)
+        ubuntu|debian|kali)
             sudo apt-get install -y git curl build-essential
             ;;
         fedora|centos|rhel)
@@ -210,7 +216,7 @@ configure_postgresql() {
     PG_VERSION=$(sudo -u postgres psql -t -c "SELECT version();" | grep -oP '\d+\.\d+' | head -1)
     
     case $DISTRO in
-        ubuntu|debian)
+        ubuntu|debian|kali)
             PG_CONFIG_DIR="/etc/postgresql/$PG_VERSION/main"
             ;;
         fedora|centos|rhel)
