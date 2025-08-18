@@ -2,6 +2,27 @@ import type { Express, RequestHandler } from "express";
 import session from "express-session";
 import { storage } from "./storage";
 
+// Create a default account for easy testing
+async function createDefaultAccount() {
+  try {
+    const defaultEmail = "demo@shist.local";
+    const existingUser = await storage.getUserByEmail(defaultEmail);
+    
+    if (!existingUser) {
+      await storage.upsertUser({
+        id: 'default-user',
+        email: defaultEmail,
+        firstName: 'Demo',
+        lastName: 'User',
+        profileImageUrl: null,
+      });
+      console.log("Created default account: demo@shist.local");
+    }
+  } catch (error) {
+    console.warn("Could not create default account:", error);
+  }
+}
+
 // Simple local development authentication
 export function getLocalSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -21,6 +42,9 @@ export function getLocalSession() {
 export async function setupLocalAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getLocalSession());
+
+  // Create default account if it doesn't exist
+  await createDefaultAccount();
 
   // Simple local auth routes
   app.post('/api/auth/local-login', async (req, res) => {
@@ -72,6 +96,34 @@ export async function setupLocalAuth(app: Express) {
       }
       res.json({ message: "Logged out successfully" });
     });
+  });
+
+  // Quick login with default account
+  app.post('/api/auth/demo-login', async (req, res) => {
+    try {
+      const user = await storage.getUserByEmail("demo@shist.local");
+      
+      if (!user) {
+        return res.status(404).json({ message: "Default account not found" });
+      }
+
+      // Set up session
+      (req.session as any).user = {
+        claims: {
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          profile_image_url: user.profileImageUrl
+        },
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
+      };
+
+      res.json({ message: "Logged in with demo account", user });
+    } catch (error) {
+      console.error("Demo login error:", error);
+      res.status(500).json({ message: "Demo login failed" });
+    }
   });
 }
 

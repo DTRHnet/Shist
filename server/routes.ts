@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 
-// Check if we're in local development mode (no REPL_ID means local development)
-const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true';
+// Force local development mode when running in Replit development environment
+const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
 import { 
   insertConnectionSchema, 
   insertListSchema, 

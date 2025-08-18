@@ -89,6 +89,19 @@ export default function LocalLogin() {
             >
               {loginMutation.isPending ? 'Logging in...' : 'Login'}
             </Button>
+            
+            <div className="text-center text-sm text-muted-foreground my-2">or</div>
+            
+            <Button 
+              type="button"
+              variant="outline"
+              className="w-full" 
+              disabled={loginMutation.isPending}
+              onClick={() => loginMutation.mutate({ email: 'demo@shist.local', name: 'Demo User' })}
+              data-testid="button-demo-login"
+            >
+              Use Demo Account
+            </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground">
             This is a development-only login. In production, users will authenticate through Replit.
