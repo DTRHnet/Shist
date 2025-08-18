@@ -2,7 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+
+// Check if we're in local development mode (no REPL_ID means local development)
+const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true';
 import { 
   insertConnectionSchema, 
   insertListSchema, 
@@ -12,6 +14,22 @@ import {
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Import auth functions based on environment
+  let setupAuth: (app: Express) => Promise<void>;
+  let isAuthenticated: any;
+
+  if (isLocalDev) {
+    console.log("Using local authentication for development");
+    const { setupLocalAuth, isLocalAuthenticated } = await import("./localAuth");
+    setupAuth = setupLocalAuth;
+    isAuthenticated = isLocalAuthenticated;
+  } else {
+    console.log("Using Replit authentication for production");
+    const { setupAuth: setupReplitAuth, isAuthenticated: isReplitAuthenticated } = await import("./replitAuth");
+    setupAuth = setupReplitAuth;
+    isAuthenticated = isReplitAuthenticated;
+  }
+
   // Auth middleware
   await setupAuth(app);
 

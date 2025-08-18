@@ -265,6 +265,8 @@ SESSION_SECRET=$(openssl rand -hex 32)
 # Application Configuration
 NODE_ENV=development
 PORT=5000
+LOCAL_DEV=true
+VITE_LOCAL_DEV=true
 
 # Replit domains (not used in local deployment)
 REPLIT_DOMAINS=localhost:5000

@@ -35,6 +35,11 @@ load_env() {
     if [[ -f .env ]]; then
         log "Loading environment variables from .env..."
         export $(grep -v '^#' .env | xargs)
+        
+        # Set local development flag
+        export NODE_ENV=development
+        export LOCAL_DEV=true
+        
         log "Environment loaded successfully"
     else
         error ".env file not found. Please run ./install.sh first."

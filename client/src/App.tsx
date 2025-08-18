@@ -11,6 +11,10 @@ import Lists from "@/pages/lists";
 import Connections from "@/pages/connections";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import LocalLogin from "@/pages/local-login";
+
+// Check if we're in local development mode
+const isLocalDev = !import.meta.env.VITE_REPL_ID || import.meta.env.VITE_LOCAL_DEV === 'true';
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -19,7 +23,13 @@ function Router() {
     <div className="max-w-md mx-auto bg-white min-h-screen relative">
       <Switch>
         {isLoading || !isAuthenticated ? (
-          <Route path="/" component={Landing} />
+          <>
+            {isLocalDev ? (
+              <Route path="/" component={LocalLogin} />
+            ) : (
+              <Route path="/" component={Landing} />
+            )}
+          </>
         ) : (
           <>
             <Route path="/" component={Home} />
