@@ -36,7 +36,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // Handle both Replit and local auth user structures
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -48,7 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Connection routes
   app.post('/api/connections/invite', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const { addresseeEmail } = req.body;
 
       // Find addressee by email
@@ -78,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/connections', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const connections = await storage.getUserConnections(userId);
       res.json(connections);
     } catch (error) {
@@ -89,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/connections/pending', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const invitations = await storage.getPendingInvitations(userId);
       res.json(invitations);
     } catch (error) {
@@ -118,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // List routes
   app.post('/api/lists', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const listData = insertListSchema.parse({
         ...req.body,
         creatorId: userId,
@@ -144,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/lists', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const lists = await storage.getUserLists(userId);
       res.json(lists);
     } catch (error) {
@@ -213,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // List item routes
   app.post('/api/lists/:id/items', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const { id } = req.params;
       
       const itemData = insertListItemSchema.parse({
