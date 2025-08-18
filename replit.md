@@ -89,3 +89,13 @@ WebSocket implementation:
 - **express-session** - Session middleware for Express
 
 The application is designed to be deployed on Replit's platform with built-in support for environment variables, database provisioning, and authentication integration.
+
+## Local Deployment
+
+For local Linux deployment, the project includes automated installation scripts:
+
+- **install.sh** - Detects Linux distribution and installs all prerequisites (Node.js 20+, PostgreSQL, Python3, build tools), sets up database, and configures environment
+- **start.sh** - Loads environment, runs migrations, and starts the application with monitoring
+- **stop.sh** - Generated automatically for clean shutdown
+
+The scripts support Ubuntu/Debian, Fedora/CentOS/RHEL, and Arch/Manjaro distributions with automatic package management and database configuration.
