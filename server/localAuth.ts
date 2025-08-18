@@ -6,6 +6,10 @@ import { storage } from "./storage";
 async function createDefaultAccount() {
   try {
     const defaultEmail = "demo@shist.local";
+    
+    // Add a small delay to ensure database connection is ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const existingUser = await storage.getUserByEmail(defaultEmail);
     
     if (!existingUser) {
@@ -43,8 +47,8 @@ export async function setupLocalAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getLocalSession());
 
-  // Create default account if it doesn't exist
-  await createDefaultAccount();
+  // Create default account if it doesn't exist (with delay for DB initialization)
+  setTimeout(createDefaultAccount, 2000);
 
   // Simple local auth routes
   app.post('/api/auth/local-login', async (req, res) => {

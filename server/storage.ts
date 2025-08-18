@@ -17,7 +17,20 @@ import {
   type ListWithDetails,
   type UserConnection,
 } from "@shared/schema";
-import { db } from "./db";
+// Use appropriate database connection based on environment
+const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
+
+let db: any;
+if (isLocalDev) {
+  console.log("Using local PostgreSQL database");
+  const { db: localDb } = await import("./localDb");
+  db = localDb;
+} else {
+  console.log("Using Neon serverless database");
+  const { db: neonDb } = await import("./db");
+  db = neonDb;
+}
+
 import { eq, and, or, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
