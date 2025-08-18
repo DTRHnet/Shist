@@ -81,7 +81,12 @@ The start script handles:
 
 ### Server Management
 - Kills any existing processes on the configured port
-- Starts the backend server using `npm run dev`
+- Automatically detects project type (JavaScript vs TypeScript)
+- Starts the backend server using the best available method:
+  - `npm run dev` for development mode (preferred for TypeScript)
+  - `npm run start` for production builds
+  - `npx tsx server/index.ts` for direct TypeScript execution
+  - `node server/index.js` for JavaScript files
 - Monitors server health and readiness
 - Provides real-time status monitoring
 
@@ -205,6 +210,10 @@ sudo systemctl start postgresql
 **Node.js version issues:**
 - Ensure Node.js v20+ is installed: `node --version`
 - Reinstall Node.js if needed
+
+**TypeScript execution issues:**
+- For TypeScript projects, ensure tsx is installed: `npm install -g tsx`
+- The start script will automatically detect and use the appropriate execution method
 
 ### Log Files
 

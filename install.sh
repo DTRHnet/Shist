@@ -292,6 +292,13 @@ install_dependencies() {
     
     if [[ -f package.json ]]; then
         npm install
+        
+        # Install tsx globally for TypeScript execution if not already installed
+        if ! command -v tsx &> /dev/null; then
+            log "Installing tsx for TypeScript support..."
+            npm install -g tsx
+        fi
+        
         log "Node.js dependencies installed"
     else
         warn "No package.json found, skipping npm install"

@@ -93,11 +93,21 @@ test_database() {
 run_migrations() {
     log "Running database migrations..."
     
-    if [[ -f package.json ]] && npm run --silent db:push &> /dev/null; then
-        npm run db:push >> logs/migrations.log 2>&1
-        log "Database migrations completed"
+    if [[ -f package.json ]]; then
+        # Check if db:push script exists
+        if npm run --silent 2>&1 | grep -q "db:push"; then
+            log "Running database migrations with 'npm run db:push'..."
+            npm run db:push >> logs/migrations.log 2>&1
+            if [[ $? -eq 0 ]]; then
+                log "Database migrations completed successfully"
+            else
+                warn "Database migrations failed. Check logs/migrations.log for details"
+            fi
+        else
+            warn "No db:push script found in package.json. Skipping migrations."
+        fi
     else
-        warn "No migration command found or migration failed. Check logs/migrations.log"
+        warn "No package.json found. Skipping migrations."
     fi
 }
 
@@ -124,18 +134,25 @@ start_backend() {
     
     # Start the server based on available scripts
     if [[ -f package.json ]]; then
-        if npm run --silent dev &> /dev/null; then
-            log "Starting with 'npm run dev'..."
+        # Check if npm run dev is available and use it first (for TypeScript projects)
+        if npm run --silent 2>&1 | grep -q "dev"; then
+            log "Starting with 'npm run dev' (TypeScript development mode)..."
             npm run dev >> logs/backend.log 2>&1 &
             BACKEND_PID=$!
-        elif npm run --silent start &> /dev/null; then
+        elif npm run --silent 2>&1 | grep -q "start"; then
             log "Starting with 'npm run start'..."
             npm run start >> logs/backend.log 2>&1 &
             BACKEND_PID=$!
-        else
+        elif [[ -f server/index.ts ]]; then
+            log "Starting TypeScript server with tsx..."
+            npx tsx server/index.ts >> logs/backend.log 2>&1 &
+            BACKEND_PID=$!
+        elif [[ -f server/index.js ]]; then
             log "Starting with 'node server/index.js'..."
             node server/index.js >> logs/backend.log 2>&1 &
             BACKEND_PID=$!
+        else
+            error "No suitable entry point found. Check package.json scripts or server files."
         fi
     else
         error "No package.json found. Cannot start the application."

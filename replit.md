@@ -94,8 +94,8 @@ The application is designed to be deployed on Replit's platform with built-in su
 
 For local Linux deployment, the project includes automated installation scripts:
 
-- **install.sh** - Detects Linux distribution and installs all prerequisites (Node.js 20+, PostgreSQL, Python3, build tools), sets up database, and configures environment
-- **start.sh** - Loads environment, runs migrations, and starts the application with monitoring
+- **install.sh** - Detects Linux distribution and installs all prerequisites (Node.js 20+, PostgreSQL, Python3, build tools, tsx for TypeScript), sets up database, and configures environment
+- **start.sh** - Loads environment, runs migrations, and starts the application with intelligent TypeScript/JavaScript detection and monitoring
 - **stop.sh** - Generated automatically for clean shutdown
 
-The scripts support Ubuntu/Debian/Kali, Fedora/CentOS/RHEL, and Arch/Manjaro distributions with automatic package management and database configuration.
+The scripts support Ubuntu/Debian/Kali, Fedora/CentOS/RHEL, and Arch/Manjaro distributions with automatic package management, TypeScript execution support, and database configuration. The start script automatically detects project type and uses the optimal execution method (npm run dev for TypeScript development, tsx for direct execution, or node for JavaScript).
