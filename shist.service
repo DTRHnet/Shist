@@ -1,0 +1,38 @@
+# Systemd service unit for Shist application
+# Assumptions: Application installed in /opt/shist, user 'shist' exists, .env file present
+# User must: Copy to /etc/systemd/system/, create shist user, set proper paths
+# Safety: Automatic restarts, proper user isolation, environment file loading
+
+[Unit]
+Description=Shist - Shared List Application
+Documentation=https://github.com/yourusername/shist
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=shist
+Group=shist
+WorkingDirectory=/opt/shist
+ExecStart=/usr/bin/node dist/index.js
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=shist
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/shist/.env
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/shist/logs
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=512M
+
+[Install]
+WantedBy=multi-user.target

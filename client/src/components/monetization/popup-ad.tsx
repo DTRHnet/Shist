@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface PopupAdProps {
   isOpen: boolean;
@@ -67,7 +68,11 @@ export function PopupAd({ isOpen, onClose }: PopupAdProps) {
       <DialogContent 
         className="sm:max-w-md mx-4 p-6 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200"
         data-testid="popup-ad-dialog"
+        aria-describedby="ad-description"
       >
+        <VisuallyHidden>
+          <DialogTitle>Premium Upgrade Offer</DialogTitle>
+        </VisuallyHidden>
         <div className="flex flex-col items-center text-center space-y-4">
           {canClose && (
             <Button
@@ -83,7 +88,7 @@ export function PopupAd({ isOpen, onClose }: PopupAdProps) {
 
           <div className="text-2xl mb-2">{currentAd.title}</div>
           
-          <p className="text-gray-600 text-sm leading-relaxed">
+          <p id="ad-description" className="text-gray-600 text-sm leading-relaxed">
             {currentAd.description}
           </p>
 
