@@ -5,6 +5,7 @@ import {
   listParticipants,
   listItems,
   invitations,
+  categories,
   sessions,
   type User,
   type UpsertUser,
@@ -18,9 +19,13 @@ import {
   type InsertListItem,
   type Invitation,
   type InsertInvitation,
+  type Category,
+  type InsertCategory,
   type ListWithDetails,
   type UserConnection,
   type InvitationWithDetails,
+  type CategoryWithSubcategories,
+  type ListItemWithDetails,
 } from "@shared/schema";
 // Use appropriate database connection based on environment
 const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
@@ -71,10 +76,18 @@ export interface IStorage {
   updateParticipantPermissions(listId: string, userId: string, permissions: Partial<Pick<InsertListParticipant, 'canAdd' | 'canEdit' | 'canDelete'>>): Promise<ListParticipant>;
   
   // List item operations
-  addListItem(item: InsertListItem): Promise<ListItem & { addedBy: User }>;
-  updateListItem(id: string, content: string, note?: string): Promise<ListItem>;
+  addListItem(item: InsertListItem): Promise<ListItemWithDetails>;
+  updateListItem(id: string, updates: Partial<InsertListItem>): Promise<ListItem>;
   deleteListItem(id: string): Promise<void>;
-  getListItems(listId: string): Promise<(ListItem & { addedBy: User })[]>;
+  getListItems(listId: string): Promise<ListItemWithDetails[]>;
+  
+  // Category operations
+  createCategory(category: InsertCategory): Promise<Category>;
+  getCategories(): Promise<CategoryWithSubcategories[]>;
+  getCategoryById(id: string): Promise<Category | undefined>;
+  updateCategory(id: string, updates: Partial<InsertCategory>): Promise<Category>;
+  deleteCategory(id: string): Promise<void>;
+  initializeDefaultCategories(): Promise<void>;
   
   // Invitation operations
   createInvitation(invitation: InsertInvitation & { token: string }): Promise<Invitation>;
@@ -369,7 +382,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // List item operations
-  async addListItem(item: InsertListItem): Promise<ListItem & { addedBy: User }> {
+  async addListItem(item: InsertListItem): Promise<ListItemWithDetails> {
     const [newItem] = await db
       .insert(listItems)
       .values(item)
@@ -381,21 +394,24 @@ export class DatabaseStorage implements IStorage {
       .set({ updatedAt: new Date() })
       .where(eq(lists.id, item.listId));
 
-    const [user] = await db
+    const [itemWithDetails] = await db
       .select()
-      .from(users)
-      .where(eq(users.id, item.addedById));
+      .from(listItems)
+      .leftJoin(users, eq(listItems.addedById, users.id))
+      .leftJoin(categories, eq(listItems.categoryId, categories.id))
+      .where(eq(listItems.id, newItem.id));
 
     return {
-      ...newItem,
-      addedBy: user!,
+      ...itemWithDetails.list_items,
+      addedBy: itemWithDetails.users!,
+      category: itemWithDetails.categories || undefined,
     };
   }
 
-  async updateListItem(id: string, content: string, note?: string): Promise<ListItem> {
+  async updateListItem(id: string, updates: Partial<InsertListItem>): Promise<ListItem> {
     const [item] = await db
       .update(listItems)
-      .set({ content, note, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: new Date() })
       .where(eq(listItems.id, id))
       .returning();
     return item;
@@ -405,18 +421,104 @@ export class DatabaseStorage implements IStorage {
     await db.delete(listItems).where(eq(listItems.id, id));
   }
 
-  async getListItems(listId: string): Promise<(ListItem & { addedBy: User })[]> {
+  async getListItems(listId: string): Promise<ListItemWithDetails[]> {
     const items = await db
       .select()
       .from(listItems)
       .leftJoin(users, eq(listItems.addedById, users.id))
+      .leftJoin(categories, eq(listItems.categoryId, categories.id))
       .where(eq(listItems.listId, listId))
       .orderBy(desc(listItems.createdAt));
 
     return items.map((item: any) => ({
       ...item.list_items,
       addedBy: item.users!,
+      category: item.categories || undefined,
     }));
+  }
+
+  // Category operations
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [newCategory] = await db
+      .insert(categories)
+      .values(category)
+      .returning();
+    return newCategory;
+  }
+
+  async getCategories(): Promise<CategoryWithSubcategories[]> {
+    const allCategories = await db
+      .select()
+      .from(categories)
+      .orderBy(categories.name);
+
+    // Group categories with their subcategories
+    const mainCategories = allCategories.filter(cat => !cat.parentId);
+    
+    return mainCategories.map(mainCat => ({
+      ...mainCat,
+      subcategories: allCategories.filter(subCat => subCat.parentId === mainCat.id)
+    }));
+  }
+
+  async getCategoryById(id: string): Promise<Category | undefined> {
+    const [category] = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.id, id));
+    return category;
+  }
+
+  async updateCategory(id: string, updates: Partial<InsertCategory>): Promise<Category> {
+    const [category] = await db
+      .update(categories)
+      .set(updates)
+      .where(eq(categories.id, id))
+      .returning();
+    return category;
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  async initializeDefaultCategories(): Promise<void> {
+    // Check if categories already exist
+    const existingCategories = await db.select().from(categories).limit(1);
+    if (existingCategories.length > 0) return;
+
+    // Import and create default categories
+    const { defaultCategories, musicSubcategories, foodSubcategories, movieSubcategories } = await import("./categories");
+    
+    // Insert main categories
+    const insertedCategories = await db
+      .insert(categories)
+      .values(defaultCategories)
+      .returning();
+
+    // Find specific category IDs for subcategories
+    const musicCategory = insertedCategories.find(cat => cat.name === "Music");
+    const foodCategory = insertedCategories.find(cat => cat.name === "Food & Restaurants");
+    const movieCategory = insertedCategories.find(cat => cat.name === "Movies");
+
+    // Insert subcategories
+    const subcategoriesToInsert = [];
+    
+    if (musicCategory) {
+      subcategoriesToInsert.push(...musicSubcategories(musicCategory.id));
+    }
+    if (foodCategory) {
+      subcategoriesToInsert.push(...foodSubcategories(foodCategory.id));
+    }
+    if (movieCategory) {
+      subcategoriesToInsert.push(...movieSubcategories(movieCategory.id));
+    }
+
+    if (subcategoriesToInsert.length > 0) {
+      await db.insert(categories).values(subcategoriesToInsert);
+    }
+
+    console.log(`Initialized ${insertedCategories.length} main categories and ${subcategoriesToInsert.length} subcategories`);
   }
 
   // Invitation operations

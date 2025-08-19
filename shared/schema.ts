@@ -84,12 +84,25 @@ export const invitations = pgTable("invitations", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// List items
+// Categories for list items
+export const categories = pgTable("categories", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  icon: varchar("icon").notNull(), // Lucide icon name
+  parentId: uuid("parent_id").references(() => categories.id), // For subcategories
+  metadata: jsonb("metadata"), // Additional category-specific data
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// List items with enhanced category support
 export const listItems = pgTable("list_items", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   listId: uuid("list_id").notNull().references(() => lists.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   note: text("note"),
+  categoryId: uuid("category_id").references(() => categories.id),
+  url: varchar("url"), // For music URLs, movie links, etc.
+  metadata: jsonb("metadata"), // Category-specific metadata (rating, duration, etc.)
   addedById: varchar("added_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -114,6 +127,18 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
     fields: [invitations.listId],
     references: [lists.id],
   }),
+}));
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
+    relationName: "subcategories",
+  }),
+  subcategories: many(categories, {
+    relationName: "subcategories",
+  }),
+  listItems: many(listItems),
 }));
 
 export const connectionsRelations = relations(connections, ({ one }) => ({
@@ -158,6 +183,10 @@ export const listItemsRelations = relations(listItems, ({ one }) => ({
     fields: [listItems.addedById],
     references: [users.id],
   }),
+  category: one(categories, {
+    fields: [listItems.categoryId],
+    references: [categories.id],
+  }),
 }));
 
 // Zod schemas
@@ -191,6 +220,11 @@ export const insertInvitationSchema = createInsertSchema(invitations).omit({
   createdAt: true,
 });
 
+export const insertCategorySchema = createInsertSchema(categories).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -204,6 +238,8 @@ export type ListItem = typeof listItems.$inferSelect;
 export type InsertListItem = z.infer<typeof insertListItemSchema>;
 export type Invitation = typeof invitations.$inferSelect;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
 
 // Extended types for API responses
 export type ListWithDetails = List & {
@@ -222,4 +258,13 @@ export type UserConnection = Connection & {
 export type InvitationWithDetails = Invitation & {
   inviter: User;
   list?: List;
+};
+
+export type CategoryWithSubcategories = Category & {
+  subcategories: Category[];
+};
+
+export type ListItemWithDetails = ListItem & {
+  addedBy: User;
+  category?: Category;
 };

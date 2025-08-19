@@ -10,7 +10,8 @@ import {
   insertListSchema, 
   insertListParticipantSchema, 
   insertListItemSchema,
-  insertInvitationSchema
+  insertInvitationSchema,
+  insertCategorySchema
 } from "@shared/schema";
 import { createInvitationServices, InvitationUtils } from "./invitationService";
 import { z } from "zod";
@@ -34,6 +35,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth middleware
   await setupAuth(app);
+
+  // Initialize default categories on first run
+  await storage.initializeDefaultCategories();
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -243,10 +247,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/lists/:listId/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
-      const { itemId } = req.params;
-      const { content, note } = req.body;
+      const { listId, itemId } = req.params;
+      const updates = insertListItemSchema.partial().parse(req.body);
+
+      if (!updates.content && !updates.note && !updates.url && !updates.categoryId && !updates.metadata) {
+        return res.status(400).json({ message: "At least one field is required to update" });
+      }
+
+      const item = await storage.updateListItem(itemId, updates);
       
-      const item = await storage.updateListItem(itemId, content, note);
+      // Broadcast to WebSocket clients
+      broadcastToList(listId, {
+        type: 'item_updated',
+        listId,
+        item,
+      });
+      
       res.json(item);
     } catch (error) {
       console.error("Error updating list item:", error);
@@ -270,6 +286,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting list item:", error);
       res.status(500).json({ message: "Failed to delete list item" });
+    }
+  });
+
+  // Category routes
+  app.get('/api/categories', async (req, res) => {
+    try {
+      const categories = await storage.getCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  app.get('/api/categories/:categoryId', async (req, res) => {
+    try {
+      const { categoryId } = req.params;
+      const category = await storage.getCategoryById(categoryId);
+      
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching category:", error);
+      res.status(500).json({ message: "Failed to fetch category" });
+    }
+  });
+
+  app.post('/api/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const categoryData = insertCategorySchema.parse(req.body);
+      const category = await storage.createCategory(categoryData);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid category data" });
     }
   });
 
@@ -451,22 +505,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const invitation = await storage.getInvitationByToken(token);
       if (!invitation) {
-        return res.status(404).send('Invitation not found');
+        return res.status(404).json({ error: 'Invitation not found' });
       }
 
       if (invitation.status !== 'pending') {
-        return res.status(400).send('This invitation is no longer valid');
+        return res.status(400).json({ error: 'This invitation is no longer valid' });
       }
 
       if (new Date(invitation.expiresAt) < new Date()) {
-        return res.status(400).send('This invitation has expired');
+        return res.status(400).json({ error: 'This invitation has expired' });
       }
 
-      // Redirect to frontend with invitation token
-      res.redirect(`/?invite=${token}`);
+      // Return invitation details for frontend handling
+      res.json({
+        invitation: {
+          id: invitation.id,
+          type: invitation.invitationType,
+          inviterName: invitation.inviter.firstName 
+            ? `${invitation.inviter.firstName} ${invitation.inviter.lastName || ''}`.trim()
+            : invitation.inviter.email,
+          listName: invitation.list?.name,
+          token: invitation.token
+        }
+      });
     } catch (error) {
       console.error("Error handling invitation:", error);
-      res.status(500).send('Server error');
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Public list sharing (for public lists)
+  app.get('/list/:listId', async (req, res) => {
+    try {
+      const { listId } = req.params;
+      
+      const list = await storage.getListById(listId);
+      if (!list) {
+        return res.status(404).json({ error: 'List not found' });
+      }
+
+      if (!list.isPublic) {
+        return res.status(403).json({ error: 'This list is private' });
+      }
+
+      // Return public list data
+      res.json({ list });
+    } catch (error) {
+      console.error("Error fetching public list:", error);
+      res.status(500).json({ error: 'Server error' });
     }
   });
 
