@@ -4,6 +4,8 @@ import {
   lists,
   listParticipants,
   listItems,
+  invitations,
+  sessions,
   type User,
   type UpsertUser,
   type Connection,
@@ -14,8 +16,11 @@ import {
   type InsertListParticipant,
   type ListItem,
   type InsertListItem,
+  type Invitation,
+  type InsertInvitation,
   type ListWithDetails,
   type UserConnection,
+  type InvitationWithDetails,
 } from "@shared/schema";
 // Use appropriate database connection based on environment
 const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
@@ -35,7 +40,8 @@ async function initializeDatabase() {
 }
 
 // Initialize database connection
-db = await initializeDatabase();
+const dbPromise = initializeDatabase();
+db = await dbPromise;
 
 import { eq, and, or, desc, sql } from "drizzle-orm";
 
@@ -69,6 +75,15 @@ export interface IStorage {
   updateListItem(id: string, content: string, note?: string): Promise<ListItem>;
   deleteListItem(id: string): Promise<void>;
   getListItems(listId: string): Promise<(ListItem & { addedBy: User })[]>;
+  
+  // Invitation operations
+  createInvitation(invitation: InsertInvitation & { token: string }): Promise<Invitation>;
+  getInvitationByToken(token: string): Promise<InvitationWithDetails | undefined>;
+  getUserInvitations(userId: string): Promise<InvitationWithDetails[]>;
+  getSentInvitations(userId: string): Promise<InvitationWithDetails[]>;
+  updateInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<Invitation>;
+  deleteInvitation(id: string): Promise<void>;
+  expireOldInvitations(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -402,6 +417,107 @@ export class DatabaseStorage implements IStorage {
       ...item.list_items,
       addedBy: item.users!,
     }));
+  }
+
+  // Invitation operations
+  async createInvitation(invitation: InsertInvitation & { token: string }): Promise<Invitation> {
+    const [newInvitation] = await db
+      .insert(invitations)
+      .values(invitation)
+      .returning();
+    return newInvitation;
+  }
+
+  async getInvitationByToken(token: string): Promise<InvitationWithDetails | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(invitations)
+      .leftJoin(users, eq(invitations.inviterId, users.id))
+      .leftJoin(lists, eq(invitations.listId, lists.id))
+      .where(eq(invitations.token, token));
+
+    if (!invitation) return undefined;
+
+    return {
+      ...invitation.invitations,
+      inviter: invitation.users!,
+      list: invitation.lists || undefined,
+    };
+  }
+
+  async getUserInvitations(userId: string): Promise<InvitationWithDetails[]> {
+    // Get invitations by email/phone for the user
+    const user = await this.getUser(userId);
+    if (!user) return [];
+
+    const userInvitations = await db
+      .select()
+      .from(invitations)
+      .leftJoin(users, eq(invitations.inviterId, users.id))
+      .leftJoin(lists, eq(invitations.listId, lists.id))
+      .where(
+        and(
+          or(
+            eq(invitations.recipientEmail, user.email || ''),
+            eq(invitations.recipientPhone, user.email || '') // In case phone is stored in email field
+          ),
+          eq(invitations.status, 'pending'),
+          sql`${invitations.expiresAt} > NOW()`
+        )
+      )
+      .orderBy(desc(invitations.createdAt));
+
+    return userInvitations.map((inv: any) => ({
+      ...inv.invitations,
+      inviter: inv.users!,
+      list: inv.lists || undefined,
+    }));
+  }
+
+  async getSentInvitations(userId: string): Promise<InvitationWithDetails[]> {
+    const sentInvitations = await db
+      .select()
+      .from(invitations)
+      .leftJoin(users, eq(invitations.inviterId, users.id))
+      .leftJoin(lists, eq(invitations.listId, lists.id))
+      .where(eq(invitations.inviterId, userId))
+      .orderBy(desc(invitations.createdAt));
+
+    return sentInvitations.map((inv: any) => ({
+      ...inv.invitations,
+      inviter: inv.users!,
+      list: inv.lists || undefined,
+    }));
+  }
+
+  async updateInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<Invitation> {
+    const [updatedInvitation] = await db
+      .update(invitations)
+      .set({ 
+        status, 
+        acceptedAt: acceptedAt || null 
+      })
+      .where(eq(invitations.id, id))
+      .returning();
+    return updatedInvitation;
+  }
+
+  async deleteInvitation(id: string): Promise<void> {
+    await db
+      .delete(invitations)
+      .where(eq(invitations.id, id));
+  }
+
+  async expireOldInvitations(): Promise<void> {
+    await db
+      .update(invitations)
+      .set({ status: 'expired' })
+      .where(
+        and(
+          eq(invitations.status, 'pending'),
+          sql`${invitations.expiresAt} < NOW()`
+        )
+      );
   }
 }
 

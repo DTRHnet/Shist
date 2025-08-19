@@ -11,6 +11,7 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Lists from "@/pages/lists";
 import Connections from "@/pages/connections";
+import Invitations from "@/pages/invitations";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import LocalLogin from "@/pages/local-login";
@@ -54,6 +55,7 @@ function Router() {
             <Route path="/" component={Home} />
             <Route path="/lists" component={Lists} />
             <Route path="/connections" component={Connections} />
+            <Route path="/invitations" component={Invitations} />
             <Route path="/settings" component={Settings} />
           </>
         )}

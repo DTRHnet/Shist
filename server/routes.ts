@@ -9,8 +9,10 @@ import {
   insertConnectionSchema, 
   insertListSchema, 
   insertListParticipantSchema, 
-  insertListItemSchema 
+  insertListItemSchema,
+  insertInvitationSchema
 } from "@shared/schema";
+import { createInvitationServices, InvitationUtils } from "./invitationService";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -268,6 +270,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting list item:", error);
       res.status(500).json({ message: "Failed to delete list item" });
+    }
+  });
+
+  // Invitation routes
+  const { emailService, smsService } = createInvitationServices();
+
+  // Create invitation
+  app.post('/api/invitations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      const invitationData = insertInvitationSchema.parse({
+        ...req.body,
+        inviterId: userId,
+        expiresAt: InvitationUtils.getExpirationDate(),
+      });
+
+      // Generate unique token
+      const token = InvitationUtils.generateInvitationToken();
+      const invitation = await storage.createInvitation({
+        ...invitationData,
+        token,
+      });
+
+      // Get inviter details for sending
+      const inviter = await storage.getUser(userId);
+      if (!inviter) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const inviterName = inviter.firstName 
+        ? `${inviter.firstName} ${inviter.lastName || ''}`.trim()
+        : inviter.email || "Someone";
+
+      // Generate invitation link
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const invitationLink = InvitationUtils.generateInvitationLink(token, baseUrl);
+
+      // Get list name if it's a list invitation
+      let listName: string | undefined;
+      if (invitationData.invitationType === 'list' && invitationData.listId) {
+        const list = await storage.getListById(invitationData.listId);
+        listName = list?.name;
+      }
+
+      // Send invitation via email or SMS
+      try {
+        if (invitationData.recipientEmail) {
+          await emailService.sendInvitationEmail(
+            invitationData.recipientEmail,
+            inviterName,
+            invitationLink,
+            invitationData.invitationType as 'connection' | 'list',
+            listName
+          );
+        } else if (invitationData.recipientPhone) {
+          await smsService.sendInvitationSMS(
+            invitationData.recipientPhone,
+            inviterName,
+            invitationLink,
+            invitationData.invitationType as 'connection' | 'list',
+            listName
+          );
+        }
+      } catch (sendError) {
+        console.error('Error sending invitation:', sendError);
+        // Still return success since invitation was created
+      }
+
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid invitation data" });
+    }
+  });
+
+  // Get received invitations
+  app.get('/api/invitations/received', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      const invitations = await storage.getUserInvitations(userId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching received invitations:", error);
+      res.status(500).json({ message: "Failed to fetch invitations" });
+    }
+  });
+
+  // Get sent invitations
+  app.get('/api/invitations/sent', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      const invitations = await storage.getSentInvitations(userId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching sent invitations:", error);
+      res.status(500).json({ message: "Failed to fetch sent invitations" });
+    }
+  });
+
+  // Accept invitation by token
+  app.post('/api/invitations/accept/:token', isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+
+      const invitation = await storage.getInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ message: "Invitation is no longer valid" });
+      }
+
+      if (new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "Invitation has expired" });
+      }
+
+      // Process the invitation based on type
+      if (invitation.invitationType === 'connection') {
+        // Create connection if it doesn't exist
+        const existingConnection = await storage.getConnectionByUsers(
+          invitation.inviterId,
+          userId
+        );
+        
+        if (!existingConnection) {
+          await storage.createConnection({
+            requesterId: invitation.inviterId,
+            addresseeId: userId,
+            status: 'accepted'
+          });
+        } else if (existingConnection.status !== 'accepted') {
+          await storage.updateConnectionStatus(existingConnection.id, 'accepted');
+        }
+      } else if (invitation.invitationType === 'list' && invitation.listId) {
+        // Add user to the list
+        await storage.addListParticipant({
+          listId: invitation.listId,
+          userId: userId,
+          canAdd: true,
+          canEdit: false,
+          canDelete: false,
+        });
+      }
+
+      // Mark invitation as accepted
+      await storage.updateInvitationStatus(invitation.id, 'accepted', new Date());
+
+      res.json({ message: "Invitation accepted successfully" });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  });
+
+  // Decline invitation
+  app.post('/api/invitations/decline/:token', isAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      
+      const invitation = await storage.getInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+
+      await storage.updateInvitationStatus(invitation.id, 'cancelled');
+      res.json({ message: "Invitation declined" });
+    } catch (error) {
+      console.error("Error declining invitation:", error);
+      res.status(500).json({ message: "Failed to decline invitation" });
+    }
+  });
+
+  // Public invitation acceptance page (for users not logged in)
+  app.get('/invite/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const invitation = await storage.getInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).send('Invitation not found');
+      }
+
+      if (invitation.status !== 'pending') {
+        return res.status(400).send('This invitation is no longer valid');
+      }
+
+      if (new Date(invitation.expiresAt) < new Date()) {
+        return res.status(400).send('This invitation has expired');
+      }
+
+      // Redirect to frontend with invitation token
+      res.redirect(`/?invite=${token}`);
+    } catch (error) {
+      console.error("Error handling invitation:", error);
+      res.status(500).send('Server error');
+    }
+  });
+
+  // Cleanup expired invitations (can be called by a cron job)
+  app.post('/api/invitations/cleanup', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.expireOldInvitations();
+      res.json({ message: "Expired invitations cleaned up" });
+    } catch (error) {
+      console.error("Error cleaning up invitations:", error);
+      res.status(500).json({ message: "Failed to cleanup invitations" });
     }
   });
 

@@ -68,6 +68,22 @@ export const listParticipants = pgTable("list_participants", {
   pk: primaryKey({ columns: [table.listId, table.userId] }),
 }));
 
+// Invitations sent via email/SMS
+export const invitations = pgTable("invitations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  inviterId: varchar("inviter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  recipientEmail: varchar("recipient_email"),
+  recipientPhone: varchar("recipient_phone"),
+  invitationType: varchar("invitation_type").notNull(), // "connection" or "list"
+  listId: uuid("list_id").references(() => lists.id, { onDelete: "cascade" }), // null for connection invites
+  status: varchar("status").notNull().default("pending"), // pending, accepted, expired, cancelled
+  token: varchar("token").notNull().unique(), // unique invitation token
+  expiresAt: timestamp("expires_at").notNull(),
+  sentAt: timestamp("sent_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // List items
 export const listItems = pgTable("list_items", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -86,6 +102,18 @@ export const usersRelations = relations(users, ({ many }) => ({
   createdLists: many(lists),
   listParticipations: many(listParticipants),
   addedItems: many(listItems),
+  sentInvitations: many(invitations),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  inviter: one(users, {
+    fields: [invitations.inviterId],
+    references: [users.id],
+  }),
+  list: one(lists, {
+    fields: [invitations.listId],
+    references: [lists.id],
+  }),
 }));
 
 export const connectionsRelations = relations(connections, ({ one }) => ({
@@ -155,6 +183,14 @@ export const insertListItemSchema = createInsertSchema(listItems).omit({
   updatedAt: true,
 });
 
+export const insertInvitationSchema = createInsertSchema(invitations).omit({
+  id: true,
+  token: true,
+  sentAt: true,
+  acceptedAt: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -166,6 +202,8 @@ export type ListParticipant = typeof listParticipants.$inferSelect;
 export type InsertListParticipant = z.infer<typeof insertListParticipantSchema>;
 export type ListItem = typeof listItems.$inferSelect;
 export type InsertListItem = z.infer<typeof insertListItemSchema>;
+export type Invitation = typeof invitations.$inferSelect;
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 
 // Extended types for API responses
 export type ListWithDetails = List & {
@@ -179,4 +217,9 @@ export type ListWithDetails = List & {
 export type UserConnection = Connection & {
   requester: User;
   addressee: User;
+};
+
+export type InvitationWithDetails = Invitation & {
+  inviter: User;
+  list?: List;
 };

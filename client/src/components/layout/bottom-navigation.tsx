@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, List, Users, Settings } from "lucide-react";
+import { Home, List, Users, Settings, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNavigation() {
@@ -9,6 +9,7 @@ export function BottomNavigation() {
     { path: "/", icon: Home, label: "Home" },
     { path: "/lists", icon: List, label: "Lists" },
     { path: "/connections", icon: Users, label: "People" },
+    { path: "/invitations", icon: Mail, label: "Invites" },
     { path: "/settings", icon: Settings, label: "Settings" },
   ];
 
