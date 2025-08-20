@@ -1,6 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === 'POST') return res.status(200).json({ ok: true, route: '/api/lists', method: req.method });
-  if (req.method === 'GET') return res.status(200).json({ ok: true, route: '/api/lists', method: req.method });
-  return res.status(405).send('Method Not Allowed');
+import type { IncomingMessage, ServerResponse } from 'http';
+
+export default function handler(req: IncomingMessage, res: ServerResponse) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ message: 'ok' }));
 }
