@@ -1,28 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../../../server/storage';
-import { insertListParticipantSchema } from '@shared/schema';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Get or create default user
-    let user = await storage.getUserByEmail('default@shist.app');
-    if (!user) {
-      user = await storage.createUser({
-        email: 'default@shist.app',
-        firstName: 'Default',
-        lastName: 'User',
-      });
-    }
-    const userId = user.id;
-
     if (req.method === 'POST') {
       const { id } = req.query;
-      const participantData = insertListParticipantSchema.parse({
+      
+      const participant = {
+        id: `participant-${Date.now()}`,
         listId: id as string,
-        ...req.body,
-      });
+        userId: req.body.userId || 'other-user-id',
+        canAdd: req.body.canAdd || false,
+        canEdit: req.body.canEdit || false,
+        canDelete: req.body.canDelete || false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
-      const participant = await storage.addListParticipant(participantData);
       return res.status(201).json(participant);
     }
 

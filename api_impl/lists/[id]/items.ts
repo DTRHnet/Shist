@@ -1,30 +1,22 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../../../server/storage';
-import { insertListItemSchema } from '@shared/schema';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Get or create default user
-    let user = await storage.getUserByEmail('default@shist.app');
-    if (!user) {
-      user = await storage.createUser({
-        email: 'default@shist.app',
-        firstName: 'Default',
-        lastName: 'User',
-      });
-    }
-    const userId = user.id;
-
     if (req.method === 'POST') {
       const { id } = req.query;
       
-      const itemData = insertListItemSchema.parse({
+      const item = {
+        id: `item-${Date.now()}`,
         listId: id as string,
-        addedById: userId,
-        ...req.body,
-      });
+        content: req.body.content || 'New item',
+        note: req.body.note || '',
+        url: req.body.url || '',
+        categoryId: req.body.categoryId || null,
+        addedById: 'default-user-id',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
-      const item = await storage.addListItem(itemData);
       return res.status(201).json(item);
     }
 

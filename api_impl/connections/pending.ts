@@ -1,21 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../../server/storage';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Get or create default user
-    let user = await storage.getUserByEmail('default@shist.app');
-    if (!user) {
-      user = await storage.createUser({
-        email: 'default@shist.app',
-        firstName: 'Default',
-        lastName: 'User',
-      });
-    }
-    const userId = user.id;
-
     if (req.method === 'GET') {
-      const invitations = await storage.getPendingInvitations(userId);
+      const invitations = [
+        {
+          id: 'invitation-1',
+          requesterId: 'other-user-id',
+          addresseeId: 'default-user-id',
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+
       return res.status(200).json(invitations);
     }
 

@@ -1,21 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../server/storage';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
-      // For now, create a default user if none exists
-      // This is a temporary solution to get the app working
-      let user = await storage.getUserByEmail('default@shist.app');
-      
-      if (!user) {
-        // Create a default user
-        user = await storage.createUser({
-          email: 'default@shist.app',
-          firstName: 'Default',
-          lastName: 'User',
-        });
-      }
+      // Return a default user for now
+      const user = {
+        id: 'default-user-id',
+        email: 'default@shist.app',
+        firstName: 'Default',
+        lastName: 'User',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
       return res.status(200).json(user);
     }

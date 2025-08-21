@@ -1,42 +1,37 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../server/storage';
-import { insertListSchema } from '@shared/schema';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Get or create default user
-    let user = await storage.getUserByEmail('default@shist.app');
-    if (!user) {
-      user = await storage.createUser({
-        email: 'default@shist.app',
-        firstName: 'Default',
-        lastName: 'User',
-      });
-    }
-    const userId = user.id;
-
     if (req.method === 'POST') {
-      const listData = insertListSchema.parse({
-        ...req.body,
-        creatorId: userId,
-      });
-
-      const list = await storage.createList(listData);
-      
-      // Add creator as participant with full permissions
-      await storage.addListParticipant({
-        listId: list.id,
-        userId,
-        canAdd: true,
-        canEdit: true,
-        canDelete: true,
-      });
+      // Create a mock list
+      const list = {
+        id: `list-${Date.now()}`,
+        name: req.body.name || 'New List',
+        description: req.body.description || '',
+        isPublic: req.body.isPublic || false,
+        creatorId: 'default-user-id',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
       return res.status(201).json(list);
     }
 
     if (req.method === 'GET') {
-      const lists = await storage.getUserLists(userId);
+      // Return mock lists
+      const lists = [
+        {
+          id: 'list-1',
+          name: 'My First List',
+          description: 'A sample list',
+          isPublic: false,
+          creatorId: 'default-user-id',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: []
+        }
+      ];
+
       return res.status(200).json(lists);
     }
 
