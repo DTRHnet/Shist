@@ -1,11 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createInvitation, getInvitationByToken, updateInvitationStatus } from '../lib/db';
-import { createUser, getUser } from '../lib/db';
-import { generateInvitationToken, getExpirationDate } from '../lib/invitationUtils';
 
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
+    const { createUser, getUser } = await import('../lib/db');
     const defaultUserId = 'default-user-id';
     const defaultUser = await getUser(defaultUserId);
     
@@ -43,6 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, token] = acceptMatch;
       
       if (req.method === 'POST') {
+        const { getInvitationByToken, updateInvitationStatus } = await import('../lib/db');
         const invitation = await getInvitationByToken(token);
         
         if (!invitation) {
@@ -66,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, token] = declineMatch;
       
       if (req.method === 'POST') {
+        const { getInvitationByToken, updateInvitationStatus } = await import('../lib/db');
         const invitation = await getInvitationByToken(token);
         
         if (!invitation) {
@@ -116,6 +116,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /invitations
     if (path === '/invitations') {
       if (req.method === 'POST') {
+        const { createInvitation } = await import('../lib/db');
+        const { generateInvitationToken, getExpirationDate } = await import('../lib/invitationUtils');
         const defaultUserId = await ensureDefaultUser();
         
         const invitation = await createInvitation({
