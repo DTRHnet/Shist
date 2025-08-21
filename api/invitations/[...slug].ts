@@ -1,9 +1,82 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { eq } from 'drizzle-orm';
+import ws from "ws";
+import * as schema from "../../shared/schema";
+import { nanoid } from 'nanoid';
+
+neonConfig.webSocketConstructor = ws;
+
+let db: any;
+
+async function getDb() {
+  if (!db) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL must be set");
+    }
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    db = drizzle({ client: pool, schema });
+  }
+  return db;
+}
+
+async function createUser(userData: any) {
+  const database = await getDb();
+  const [user] = await database
+    .insert(schema.users)
+    .values(userData)
+    .onConflictDoUpdate({
+      target: schema.users.id,
+      set: {
+        ...userData,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return user;
+}
+
+async function getUser(id: string) {
+  const database = await getDb();
+  const [user] = await database.select().from(schema.users).where(eq(schema.users.id, id));
+  return user;
+}
+
+async function createInvitation(invitationData: any) {
+  const database = await getDb();
+  const [invitation] = await database.insert(schema.invitations).values(invitationData).returning();
+  return invitation;
+}
+
+async function getInvitationByToken(token: string) {
+  const database = await getDb();
+  const [invitation] = await database.select().from(schema.invitations).where(eq(schema.invitations.token, token));
+  return invitation;
+}
+
+async function updateInvitationStatus(id: string, status: string, acceptedAt?: Date) {
+  const database = await getDb();
+  const [invitation] = await database
+    .update(schema.invitations)
+    .set({ status, acceptedAt: acceptedAt || null })
+    .where(eq(schema.invitations.id, id))
+    .returning();
+  return invitation;
+}
+
+function generateInvitationToken(): string {
+  return nanoid(32);
+}
+
+function getExpirationDate(): Date {
+  // 7 days from now
+  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+}
 
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const { createUser, getUser } = await import('../lib/db');
     const defaultUserId = 'default-user-id';
     const defaultUser = await getUser(defaultUserId);
     
@@ -41,7 +114,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, token] = acceptMatch;
       
       if (req.method === 'POST') {
-        const { getInvitationByToken, updateInvitationStatus } = await import('../lib/db');
         const invitation = await getInvitationByToken(token);
         
         if (!invitation) {
@@ -65,7 +137,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, token] = declineMatch;
       
       if (req.method === 'POST') {
-        const { getInvitationByToken, updateInvitationStatus } = await import('../lib/db');
         const invitation = await getInvitationByToken(token);
         
         if (!invitation) {
@@ -116,8 +187,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /invitations
     if (path === '/invitations') {
       if (req.method === 'POST') {
-        const { createInvitation } = await import('../lib/db');
-        const { generateInvitationToken, getExpirationDate } = await import('../lib/invitationUtils');
         const defaultUserId = await ensureDefaultUser();
         
         const invitation = await createInvitation({

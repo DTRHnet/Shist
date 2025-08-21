@@ -1,4 +1,40 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { eq } from 'drizzle-orm';
+import ws from "ws";
+import * as schema from "../../shared/schema";
+
+neonConfig.webSocketConstructor = ws;
+
+let db: any;
+
+async function getDb() {
+  if (!db) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL must be set");
+    }
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    db = drizzle({ client: pool, schema });
+  }
+  return db;
+}
+
+async function createUser(userData: any) {
+  const database = await getDb();
+  const [user] = await database
+    .insert(schema.users)
+    .values(userData)
+    .onConflictDoUpdate({
+      target: schema.users.id,
+      set: {
+        ...userData,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return user;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -10,8 +46,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-      const { createUser, getUser } = await import('../lib/db');
-      
       const { email, name } = req.body;
       
       if (!email) {

@@ -1,9 +1,252 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { eq, or } from 'drizzle-orm';
+import ws from "ws";
+import * as schema from "../../shared/schema";
+
+neonConfig.webSocketConstructor = ws;
+
+let db: any;
+
+async function getDb() {
+  if (!db) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL must be set");
+    }
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    db = drizzle({ client: pool, schema });
+  }
+  return db;
+}
+
+async function createUser(userData: any) {
+  const database = await getDb();
+  const [user] = await database
+    .insert(schema.users)
+    .values(userData)
+    .onConflictDoUpdate({
+      target: schema.users.id,
+      set: {
+        ...userData,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return user;
+}
+
+async function getUser(id: string) {
+  const database = await getDb();
+  const [user] = await database.select().from(schema.users).where(eq(schema.users.id, id));
+  return user;
+}
+
+async function createList(listData: any) {
+  const database = await getDb();
+  const [list] = await database.insert(schema.lists).values(listData).returning();
+  return list;
+}
+
+async function getLists(userId: string) {
+  const database = await getDb();
+  
+  // Get basic lists
+  const lists = await database
+    .select()
+    .from(schema.lists)
+    .where(eq(schema.lists.creatorId, userId));
+  
+  // For each list, get the related data
+  const listsWithDetails = await Promise.all(
+    lists.map(async (list) => {
+      // Get creator
+      const [creator] = await database
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, list.creatorId));
+      
+      // Get participants
+      const participants = await database
+        .select()
+        .from(schema.listParticipants)
+        .where(eq(schema.listParticipants.listId, list.id));
+      
+      // Get participants with user data
+      const participantsWithUsers = await Promise.all(
+        participants.map(async (participant) => {
+          const [user] = await database
+            .select()
+            .from(schema.users)
+            .where(eq(schema.users.id, participant.userId));
+          return { ...participant, user };
+        })
+      );
+      
+      // Get items
+      const items = await database
+        .select()
+        .from(schema.listItems)
+        .where(eq(schema.listItems.listId, list.id))
+        .orderBy(schema.listItems.createdAt);
+      
+      // Get items with user data
+      const itemsWithUsers = await Promise.all(
+        items.map(async (item) => {
+          const [addedBy] = await database
+            .select()
+            .from(schema.users)
+            .where(eq(schema.users.id, item.addedById));
+          return { ...item, addedBy };
+        })
+      );
+      
+      // Get last item
+      const lastItem = itemsWithUsers.length > 0 ? itemsWithUsers[itemsWithUsers.length - 1] : undefined;
+      
+      return {
+        ...list,
+        creator,
+        participants: participantsWithUsers,
+        items: itemsWithUsers,
+        itemCount: itemsWithUsers.length,
+        lastItem,
+      };
+    })
+  );
+  
+  return listsWithDetails;
+}
+
+async function getListById(id: string) {
+  const database = await getDb();
+  const [list] = await database.select().from(schema.lists).where(eq(schema.lists.id, id));
+  
+  if (!list) {
+    return null;
+  }
+  
+  // Get creator
+  const [creator] = await database
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, list.creatorId));
+  
+  // Get participants
+  const participants = await database
+    .select()
+    .from(schema.listParticipants)
+    .where(eq(schema.listParticipants.listId, list.id));
+  
+  // Get participants with user data
+  const participantsWithUsers = await Promise.all(
+    participants.map(async (participant) => {
+      const [user] = await database
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, participant.userId));
+      return { ...participant, user };
+    })
+  );
+  
+  // Get items
+  const items = await database
+    .select()
+    .from(schema.listItems)
+    .where(eq(schema.listItems.listId, list.id))
+    .orderBy(schema.listItems.createdAt);
+  
+  // Get items with user data
+  const itemsWithUsers = await Promise.all(
+    items.map(async (item) => {
+      const [addedBy] = await database
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, item.addedById));
+      return { ...item, addedBy };
+    })
+  );
+  
+  // Get last item
+  const lastItem = itemsWithUsers.length > 0 ? itemsWithUsers[itemsWithUsers.length - 1] : undefined;
+  
+  return {
+    ...list,
+    creator,
+    participants: participantsWithUsers,
+    items: itemsWithUsers,
+    itemCount: itemsWithUsers.length,
+    lastItem,
+  };
+}
+
+async function updateList(id: string, updates: any) {
+  const database = await getDb();
+  const [list] = await database
+    .update(schema.lists)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(schema.lists.id, id))
+    .returning();
+  return list;
+}
+
+async function deleteList(id: string) {
+  const database = await getDb();
+  await database.delete(schema.lists).where(eq(schema.lists.id, id));
+}
+
+async function addListItem(itemData: any) {
+  const database = await getDb();
+  const [item] = await database.insert(schema.listItems).values(itemData).returning();
+  return item;
+}
+
+async function getListItems(listId: string) {
+  const database = await getDb();
+  const items = await database
+    .select()
+    .from(schema.listItems)
+    .where(eq(schema.listItems.listId, listId))
+    .orderBy(schema.listItems.createdAt);
+  
+  // Get items with user data
+  const itemsWithUsers = await Promise.all(
+    items.map(async (item) => {
+      const [addedBy] = await database
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, item.addedById));
+      return { ...item, addedBy };
+    })
+  );
+  
+  return itemsWithUsers;
+}
+
+async function updateListItem(id: string, updates: any) {
+  const database = await getDb();
+  const [item] = await database
+    .update(schema.listItems)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(schema.listItems.id, id))
+    .returning();
+  return item;
+}
+
+async function deleteListItem(id: string) {
+  const database = await getDb();
+  await database.delete(schema.listItems).where(eq(schema.listItems.id, id));
+}
+
+async function addListParticipant(participantData: any) {
+  const database = await getDb();
+  const [participant] = await database.insert(schema.listParticipants).values(participantData).returning();
+  return participant;
+}
 
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const { createUser, getUser } = await import('../lib/db');
     const defaultUserId = 'default-user-id';
     const defaultUser = await getUser(defaultUserId);
     
@@ -41,7 +284,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId, itemId] = itemMatch;
       
       if (req.method === 'PATCH') {
-        const { updateListItem } = await import('../lib/db');
         const item = await updateListItem(itemId, {
           content: req.body.content,
           note: req.body.note,
@@ -53,7 +295,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'DELETE') {
-        const { deleteListItem } = await import('../lib/db');
         await deleteListItem(itemId);
         return res.status(200).json({ success: true });
       }
@@ -67,7 +308,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = participantsMatch;
       
       if (req.method === 'POST') {
-        const { addListParticipant } = await import('../lib/db');
         const participant = await addListParticipant({
           listId,
           userId: req.body.userId,
@@ -87,13 +327,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = itemsMatch;
       
       if (req.method === 'GET') {
-        const { getListItems } = await import('../lib/db');
         const items = await getListItems(listId);
         return res.status(200).json(items);
       }
       
       if (req.method === 'POST') {
-        const { addListItem } = await import('../lib/db');
         const defaultUserId = await ensureDefaultUser();
         
         const item = await addListItem({
@@ -117,7 +355,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = listMatch;
       
       if (req.method === 'GET') {
-        const { getListById } = await import('../lib/db');
         const list = await getListById(listId);
         
         if (!list) {
@@ -128,7 +365,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'PATCH') {
-        const { updateList } = await import('../lib/db');
         const list = await updateList(listId, {
           name: req.body.name,
           description: req.body.description,
@@ -138,7 +374,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'DELETE') {
-        const { deleteList } = await import('../lib/db');
         await deleteList(listId);
         return res.status(200).json({ success: true });
       }
@@ -152,7 +387,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = altListMatch;
       
       if (req.method === 'GET') {
-        const { getListById } = await import('../lib/db');
         const list = await getListById(listId);
         
         if (!list) {
@@ -168,14 +402,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /lists
     if (path === '/lists') {
       if (req.method === 'GET') {
-        const { getLists } = await import('../lib/db');
         const defaultUserId = await ensureDefaultUser();
         const lists = await getLists(defaultUserId);
         return res.status(200).json(lists);
       }
       
       if (req.method === 'POST') {
-        const { createList, addListParticipant } = await import('../lib/db');
         const defaultUserId = await ensureDefaultUser();
         
         const list = await createList({
