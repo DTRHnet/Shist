@@ -1,39 +1,33 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { storage } from '../../../server/storage';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { id } = req.query;
+    const listId = id as string;
 
     if (req.method === 'GET') {
-      const list = {
-        id: id as string,
-        name: 'Sample List',
-        description: 'A sample list for testing',
-        isPublic: false,
-        creatorId: 'default-user-id',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        items: []
-      };
+      const list = await storage.getListById(listId);
+      
+      if (!list) {
+        return res.status(404).json({ message: 'List not found' });
+      }
 
       return res.status(200).json(list);
     }
 
     if (req.method === 'PATCH') {
-      const list = {
-        id: id as string,
-        name: req.body.name || 'Updated List',
-        description: req.body.description || '',
-        isPublic: req.body.isPublic || false,
-        creatorId: 'default-user-id',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      const list = await storage.updateList(listId, {
+        name: req.body.name,
+        description: req.body.description,
+        isPublic: req.body.isPublic,
+      });
 
       return res.status(200).json(list);
     }
 
     if (req.method === 'DELETE') {
+      await storage.deleteList(listId);
       return res.status(200).json({ success: true });
     }
 

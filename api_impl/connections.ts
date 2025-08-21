@@ -1,33 +1,39 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { storage } from '../../server/storage';
+
+// Ensure default user exists
+async function ensureDefaultUser() {
+  const defaultUserId = 'default-user-id';
+  const defaultUser = await storage.getUser(defaultUserId);
+  
+  if (!defaultUser) {
+    await storage.upsertUser({
+      id: defaultUserId,
+      email: 'default@example.com',
+      firstName: 'Default',
+      lastName: 'User',
+    });
+  }
+  
+  return defaultUserId;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') {
-      // Return mock connections
-      const connections = [
-        {
-          id: 'connection-1',
-          requesterId: 'default-user-id',
-          addresseeId: 'other-user-id',
-          status: 'accepted',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-
+      const defaultUserId = await ensureDefaultUser();
+      const connections = await storage.getUserConnections(defaultUserId);
       return res.status(200).json(connections);
     }
 
     if (req.method === 'POST') {
-      // Create a mock connection
-      const connection = {
-        id: `connection-${Date.now()}`,
-        requesterId: 'default-user-id',
-        addresseeId: 'other-user-id',
+      const defaultUserId = await ensureDefaultUser();
+      
+      const connection = await storage.createConnection({
+        requesterId: defaultUserId,
+        addresseeId: req.body.addresseeId || 'other-user-id',
         status: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      });
 
       return res.status(201).json(connection);
     }
