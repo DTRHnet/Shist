@@ -23,7 +23,7 @@ export default defineConfig(async ({ mode }) => {
 
   return {
     plugins,
-    base: "/", // 👈 critical for Vercel
+    base: "./", // 👈 critical for Vercel
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "src"),
