@@ -33,7 +33,7 @@ export default defineConfig(async ({ mode }) => {
     },
     root: path.resolve(__dirname),
     build: {
-      outDir: path.resolve(__dirname, "../dist/public"),
+      outDir: path.resolve(__dirname, "dist"),
       emptyOutDir: true,
     },
     server: {
