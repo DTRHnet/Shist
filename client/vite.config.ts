@@ -5,7 +5,6 @@ import path from "path";
 export default defineConfig(async ({ mode }) => {
   const plugins: any[] = [react()];
 
-  // Only load Replit plugins in dev + REPL_ID
   if (mode !== "production" && process.env.REPL_ID) {
     try {
       const { default: runtimeErrorOverlay } = await import(
@@ -18,12 +17,13 @@ export default defineConfig(async ({ mode }) => {
       );
       plugins.push(cartographer());
     } catch {
-      // silently ignore if not available
+      // ignore if not available
     }
   }
 
   return {
     plugins,
+    base: "/", // 👈 critical for Vercel
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "src"),
