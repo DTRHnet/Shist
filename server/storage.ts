@@ -453,11 +453,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(categories.name);
 
     // Group categories with their subcategories
-    const mainCategories = allCategories.filter(cat => !cat.parentId);
+    const mainCategories = allCategories.filter((cat: any) => !cat.parentId);
     
-    return mainCategories.map(mainCat => ({
+    return mainCategories.map((mainCat: any) => ({
       ...mainCat,
-      subcategories: allCategories.filter(subCat => subCat.parentId === mainCat.id)
+      subcategories: allCategories.filter((subCat: any) => subCat.parentId === mainCat.id)
     }));
   }
 
@@ -497,9 +497,9 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     // Find specific category IDs for subcategories
-    const musicCategory = insertedCategories.find(cat => cat.name === "Music");
-    const foodCategory = insertedCategories.find(cat => cat.name === "Food & Restaurants");
-    const movieCategory = insertedCategories.find(cat => cat.name === "Movies");
+    const musicCategory = insertedCategories.find((cat: any) => cat.name === "Music");
+    const foodCategory = insertedCategories.find((cat: any) => cat.name === "Food & Restaurants");
+    const movieCategory = insertedCategories.find((cat: any) => cat.name === "Movies");
 
     // Insert subcategories
     const subcategoriesToInsert = [];
