@@ -11,7 +11,8 @@
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "wouter": "^3.x.x"
+    "wouter": "^3.x.x",
+    "@tanstack/react-query": "^5.60.0"
   },
   "devDependencies": {
     "vite": "^5.4.0",
