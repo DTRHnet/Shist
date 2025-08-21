@@ -1,5 +1,6 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
+import { eq, or } from 'drizzle-orm';
 import ws from "ws";
 import * as schema from "../../shared/schema";
 
@@ -37,7 +38,7 @@ export async function createUser(userData: any) {
 
 export async function getUser(id: string) {
   const database = await getDb();
-  const [user] = await database.select().from(schema.users).where(schema.users.id === id);
+  const [user] = await database.select().from(schema.users).where(eq(schema.users.id, id));
   return user;
 }
 
@@ -52,13 +53,13 @@ export async function getLists(userId: string) {
   const lists = await database
     .select()
     .from(schema.lists)
-    .where(schema.lists.creatorId === userId);
+    .where(eq(schema.lists.creatorId, userId));
   return lists;
 }
 
 export async function getListById(id: string) {
   const database = await getDb();
-  const [list] = await database.select().from(schema.lists).where(schema.lists.id === id);
+  const [list] = await database.select().from(schema.lists).where(eq(schema.lists.id, id));
   return list;
 }
 
@@ -67,14 +68,14 @@ export async function updateList(id: string, updates: any) {
   const [list] = await database
     .update(schema.lists)
     .set({ ...updates, updatedAt: new Date() })
-    .where(schema.lists.id === id)
+    .where(eq(schema.lists.id, id))
     .returning();
   return list;
 }
 
 export async function deleteList(id: string) {
   const database = await getDb();
-  await database.delete(schema.lists).where(schema.lists.id === id);
+  await database.delete(schema.lists).where(eq(schema.lists.id, id));
 }
 
 export async function createConnection(connectionData: any) {
@@ -88,7 +89,7 @@ export async function getConnections(userId: string) {
   const connections = await database
     .select()
     .from(schema.connections)
-    .where(schema.connections.requesterId === userId || schema.connections.addresseeId === userId);
+    .where(or(eq(schema.connections.requesterId, userId), eq(schema.connections.addresseeId, userId)));
   return connections;
 }
 
@@ -97,7 +98,7 @@ export async function updateConnectionStatus(id: string, status: string) {
   const [connection] = await database
     .update(schema.connections)
     .set({ status, updatedAt: new Date() })
-    .where(schema.connections.id === id)
+    .where(eq(schema.connections.id, id))
     .returning();
   return connection;
 }
@@ -110,7 +111,7 @@ export async function createInvitation(invitationData: any) {
 
 export async function getInvitationByToken(token: string) {
   const database = await getDb();
-  const [invitation] = await database.select().from(schema.invitations).where(schema.invitations.token === token);
+  const [invitation] = await database.select().from(schema.invitations).where(eq(schema.invitations.token, token));
   return invitation;
 }
 
@@ -119,7 +120,7 @@ export async function updateInvitationStatus(id: string, status: string, accepte
   const [invitation] = await database
     .update(schema.invitations)
     .set({ status, acceptedAt: acceptedAt || null })
-    .where(schema.invitations.id === id)
+    .where(eq(schema.invitations.id, id))
     .returning();
   return invitation;
 }
@@ -138,7 +139,7 @@ export async function createCategory(categoryData: any) {
 
 export async function getCategoryById(id: string) {
   const database = await getDb();
-  const [category] = await database.select().from(schema.categories).where(schema.categories.id === id);
+  const [category] = await database.select().from(schema.categories).where(eq(schema.categories.id, id));
   return category;
 }
 
@@ -153,14 +154,14 @@ export async function updateListItem(id: string, updates: any) {
   const [item] = await database
     .update(schema.listItems)
     .set({ ...updates, updatedAt: new Date() })
-    .where(schema.listItems.id === id)
+    .where(eq(schema.listItems.id, id))
     .returning();
   return item;
 }
 
 export async function deleteListItem(id: string) {
   const database = await getDb();
-  await database.delete(schema.listItems).where(schema.listItems.id === id);
+  await database.delete(schema.listItems).where(eq(schema.listItems.id, id));
 }
 
 export async function addListParticipant(participantData: any) {
