@@ -1,12 +1,6 @@
 // Default categories and subcategories for Shist
 import type { InsertCategory } from "@shared/schema";
 
-// Define the metadata type for categories
-type CategoryMetadata = {
-  description: string;
-  fields: string[];
-};
-
 export const defaultCategories: InsertCategory[] = [
   // Main Categories
   {
@@ -16,7 +10,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Songs, albums, artists, playlists",
       fields: ["url", "artist", "album", "genre", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Movies",
@@ -25,7 +19,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Films, documentaries, series",
       fields: ["url", "director", "year", "genre", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "TV Shows",
@@ -34,7 +28,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "TV series, episodes, shows",
       fields: ["url", "season", "episode", "network", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Food & Restaurants",
@@ -43,7 +37,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Restaurants, recipes, food items",
       fields: ["url", "cuisine", "location", "price", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Books",
@@ -52,7 +46,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Books, audiobooks, ebooks",
       fields: ["url", "author", "genre", "pages", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Travel",
@@ -61,7 +55,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Destinations, hotels, activities",
       fields: ["url", "location", "date", "cost", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Shopping",
@@ -70,7 +64,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Products, stores, wishlists",
       fields: ["url", "price", "store", "brand", "priority"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Games",
@@ -79,7 +73,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Video games, board games",
       fields: ["url", "platform", "genre", "multiplayer", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Health & Fitness",
@@ -88,7 +82,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Workouts, nutrition, wellness",
       fields: ["url", "duration", "intensity", "type", "progress"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Work & Productivity",
@@ -97,7 +91,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Tasks, projects, meetings",
       fields: ["url", "priority", "deadline", "status", "assignee"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Learning",
@@ -106,7 +100,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Courses, tutorials, skills",
       fields: ["url", "level", "duration", "progress", "certificate"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Events",
@@ -115,7 +109,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Concerts, conferences, gatherings",
       fields: ["url", "date", "location", "cost", "tickets"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Sports",
@@ -124,7 +118,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Teams, matches, activities",
       fields: ["url", "league", "season", "score", "date"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Technology",
@@ -133,7 +127,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Gadgets, software, apps",
       fields: ["url", "platform", "version", "price", "rating"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Home & Garden",
@@ -142,7 +136,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Furniture, plants, improvements",
       fields: ["url", "room", "cost", "store", "priority"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Fashion & Style",
@@ -151,7 +145,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Clothing, accessories, looks",
       fields: ["url", "brand", "size", "color", "price"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Art & Culture",
@@ -160,7 +154,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Museums, galleries, artwork",
       fields: ["url", "artist", "period", "location", "exhibition"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Automotive",
@@ -169,7 +163,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Cars, maintenance, accessories",
       fields: ["url", "make", "model", "year", "price"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Pets",
@@ -178,7 +172,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Pet care, supplies, health",
       fields: ["url", "petType", "brand", "vet", "schedule"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Finance",
@@ -187,7 +181,7 @@ export const defaultCategories: InsertCategory[] = [
     metadata: {
       description: "Investments, budgets, expenses",
       fields: ["url", "amount", "category", "date", "account"]
-    } as CategoryMetadata
+    }
   }
 ];
 
@@ -200,7 +194,7 @@ export const musicSubcategories = (musicCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Individual tracks and singles",
       fields: ["spotify", "youtube", "apple_music", "artist", "album", "duration", "bpm"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Albums",
@@ -209,7 +203,7 @@ export const musicSubcategories = (musicCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Full albums and EPs",
       fields: ["spotify", "youtube", "apple_music", "artist", "year", "tracks", "genre"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Artists",
@@ -218,7 +212,7 @@ export const musicSubcategories = (musicCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Musicians and bands",
       fields: ["spotify", "youtube", "apple_music", "genre", "country", "formed"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Playlists",
@@ -227,7 +221,7 @@ export const musicSubcategories = (musicCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Curated music collections",
       fields: ["spotify", "youtube", "apple_music", "creator", "tracks", "duration"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Live Music",
@@ -236,7 +230,7 @@ export const musicSubcategories = (musicCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Concerts and live performances",
       fields: ["venue", "date", "tickets", "artist", "setlist", "recording"]
-    } as CategoryMetadata
+    }
   }
 ];
 
@@ -249,7 +243,7 @@ export const foodSubcategories = (foodCategoryId: string): InsertCategory[] => [
     metadata: {
       description: "Dining establishments",
       fields: ["location", "cuisine", "priceRange", "rating", "phone", "hours"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Recipes",
@@ -258,7 +252,7 @@ export const foodSubcategories = (foodCategoryId: string): InsertCategory[] => [
     metadata: {
       description: "Cooking recipes",
       fields: ["url", "cuisine", "difficulty", "cookTime", "servings", "ingredients"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Takeout",
@@ -267,7 +261,7 @@ export const foodSubcategories = (foodCategoryId: string): InsertCategory[] => [
     metadata: {
       description: "Food delivery options",
       fields: ["app", "restaurant", "cuisine", "deliveryTime", "minimumOrder"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Grocery Items",
@@ -276,7 +270,7 @@ export const foodSubcategories = (foodCategoryId: string): InsertCategory[] => [
     metadata: {
       description: "Shopping list items",
       fields: ["brand", "store", "price", "quantity", "organic"]
-    } as CategoryMetadata
+    }
   }
 ];
 
@@ -289,7 +283,7 @@ export const movieSubcategories = (movieCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Movies on watchlist",
       fields: ["netflix", "amazon", "disney", "hbo", "genre", "year", "duration"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Watched",
@@ -298,7 +292,7 @@ export const movieSubcategories = (movieCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Completed movies",
       fields: ["platform", "rating", "watchDate", "genre", "director", "review"]
-    } as CategoryMetadata
+    }
   },
   {
     name: "Cinema",
@@ -307,7 +301,7 @@ export const movieSubcategories = (movieCategoryId: string): InsertCategory[] =>
     metadata: {
       description: "Theater releases",
       fields: ["theater", "showtime", "tickets", "price", "seats", "date"]
-    } as CategoryMetadata
+    }
   }
 ];
 

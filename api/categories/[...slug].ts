@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../server/storage';
+import { getCategories, createCategory, getCategoryById } from '../lib/db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const categoryId = categoryIdMatch[1];
       
       if (req.method === 'GET') {
-        const category = await storage.getCategoryById(categoryId);
+        const category = await getCategoryById(categoryId);
         
         if (!category) {
           return res.status(404).json({ message: 'Category not found' });
@@ -34,12 +34,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /categories
     if (path === '/categories') {
       if (req.method === 'GET') {
-        const categories = await storage.getCategories();
+        const categories = await getCategories();
         return res.status(200).json(categories);
       }
       
       if (req.method === 'POST') {
-        const category = await storage.createCategory({
+        const category = await createCategory({
           name: req.body.name,
           icon: req.body.icon || '📝',
           parentId: req.body.parentId,

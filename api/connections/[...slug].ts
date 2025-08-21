@@ -1,14 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../server/storage';
+import { createConnection, getConnections, updateConnectionStatus } from '../lib/db';
+import { createUser, getUser } from '../lib/db';
 
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
     const defaultUserId = 'default-user-id';
-    const defaultUser = await storage.getUser(defaultUserId);
+    const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
-      await storage.upsertUser({
+      await createUser({
         id: defaultUserId,
         email: 'default@example.com',
         firstName: 'Default',
@@ -41,25 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, connectionId] = statusMatch;
       
       if (req.method === 'PATCH') {
-        const { status } = req.body;
-        
-        if (!['accepted', 'rejected'].includes(status)) {
-          return res.status(400).json({ message: "Invalid status" });
-        }
-
-        const connection = await storage.updateConnectionStatus(connectionId, status);
+        const connection = await updateConnectionStatus(connectionId, req.body.status);
         return res.status(200).json(connection);
-      }
-      
-      return res.status(405).json({ message: 'Method not allowed' });
-    }
-
-    // Handle /connections/pending
-    if (path === '/connections/pending') {
-      if (req.method === 'GET') {
-        const defaultUserId = await ensureDefaultUser();
-        const invitations = await storage.getPendingInvitations(defaultUserId);
-        return res.status(200).json(invitations);
       }
       
       return res.status(405).json({ message: 'Method not allowed' });
@@ -69,19 +53,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (path === '/connections') {
       if (req.method === 'GET') {
         const defaultUserId = await ensureDefaultUser();
-        const connections = await storage.getUserConnections(defaultUserId);
+        const connections = await getConnections(defaultUserId);
         return res.status(200).json(connections);
       }
       
       if (req.method === 'POST') {
         const defaultUserId = await ensureDefaultUser();
         
-        const connection = await storage.createConnection({
+        const connection = await createConnection({
           requesterId: defaultUserId,
-          addresseeId: req.body.addresseeId || 'other-user-id',
+          addresseeId: req.body.addresseeId,
           status: 'pending',
         });
-
         return res.status(201).json(connection);
       }
       

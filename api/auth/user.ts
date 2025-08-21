@@ -1,14 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../server/storage';
+import { createUser, getUser } from '../lib/db';
 
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
     const defaultUserId = 'default-user-id';
-    const defaultUser = await storage.getUser(defaultUserId);
+    const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
-      await storage.upsertUser({
+      await createUser({
         id: defaultUserId,
         email: 'default@example.com',
         firstName: 'Default',
@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'GET') {
       const defaultUserId = await ensureDefaultUser();
-      const user = await storage.getUser(defaultUserId);
+      const user = await getUser(defaultUserId);
       
       if (!user) {
         return res.status(404).json({ message: 'User not found' });

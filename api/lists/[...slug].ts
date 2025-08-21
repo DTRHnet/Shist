@@ -1,14 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../../server/storage';
+import { 
+  createList, 
+  getLists, 
+  getListById, 
+  updateList, 
+  deleteList, 
+  addListItem, 
+  updateListItem, 
+  deleteListItem, 
+  addListParticipant 
+} from '../lib/db';
+import { createUser, getUser } from '../lib/db';
 
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
     const defaultUserId = 'default-user-id';
-    const defaultUser = await storage.getUser(defaultUserId);
+    const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
-      await storage.upsertUser({
+      await createUser({
         id: defaultUserId,
         email: 'default@example.com',
         firstName: 'Default',
@@ -41,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId, itemId] = itemMatch;
       
       if (req.method === 'PATCH') {
-        const item = await storage.updateListItem(itemId, {
+        const item = await updateListItem(itemId, {
           content: req.body.content,
           note: req.body.note,
           url: req.body.url,
@@ -52,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'DELETE') {
-        await storage.deleteListItem(itemId);
+        await deleteListItem(itemId);
         return res.status(200).json({ success: true });
       }
       
@@ -65,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = participantsMatch;
       
       if (req.method === 'POST') {
-        const participant = await storage.addListParticipant({
+        const participant = await addListParticipant({
           listId,
           userId: req.body.userId,
           canAdd: req.body.canAdd || true,
@@ -86,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (req.method === 'POST') {
         const defaultUserId = await ensureDefaultUser();
         
-        const item = await storage.addListItem({
+        const item = await addListItem({
           listId,
           content: req.body.content || 'New item',
           note: req.body.note || '',
@@ -107,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = listMatch;
       
       if (req.method === 'GET') {
-        const list = await storage.getListById(listId);
+        const list = await getListById(listId);
         
         if (!list) {
           return res.status(404).json({ message: 'List not found' });
@@ -117,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'PATCH') {
-        const list = await storage.updateList(listId, {
+        const list = await updateList(listId, {
           name: req.body.name,
           description: req.body.description,
           isPublic: req.body.isPublic,
@@ -126,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'DELETE') {
-        await storage.deleteList(listId);
+        await deleteList(listId);
         return res.status(200).json({ success: true });
       }
       
@@ -139,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = altListMatch;
       
       if (req.method === 'GET') {
-        const list = await storage.getListById(listId);
+        const list = await getListById(listId);
         
         if (!list) {
           return res.status(404).json({ message: 'List not found' });
@@ -155,14 +166,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (path === '/lists') {
       if (req.method === 'GET') {
         const defaultUserId = await ensureDefaultUser();
-        const lists = await storage.getUserLists(defaultUserId);
+        const lists = await getLists(defaultUserId);
         return res.status(200).json(lists);
       }
       
       if (req.method === 'POST') {
         const defaultUserId = await ensureDefaultUser();
         
-        const list = await storage.createList({
+        const list = await createList({
           name: req.body.name || 'New List',
           description: req.body.description || '',
           isPublic: req.body.isPublic || false,
@@ -170,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         // Add creator as participant with full permissions
-        await storage.addListParticipant({
+        await addListParticipant({
           listId: list.id,
           userId: defaultUserId,
           canAdd: true,
