@@ -4,6 +4,7 @@
   "outputDirectory": "client/dist",
   "rewrites": [
     { "source": "/api/:match*", "destination": "/api/:match*" },
+    { "source": "/assets/:match*", "destination": "/assets/:match*" }, 
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
