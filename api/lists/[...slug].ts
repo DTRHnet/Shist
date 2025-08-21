@@ -86,6 +86,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (itemsMatch) {
       const [, listId] = itemsMatch;
       
+      if (req.method === 'GET') {
+        const { getListItems } = await import('../lib/db');
+        const items = await getListItems(listId);
+        return res.status(200).json(items);
+      }
+      
       if (req.method === 'POST') {
         const { addListItem } = await import('../lib/db');
         const defaultUserId = await ensureDefaultUser();

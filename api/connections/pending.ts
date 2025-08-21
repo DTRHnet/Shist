@@ -1,0 +1,56 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+// Ensure default user exists
+async function ensureDefaultUser() {
+  try {
+    const { createUser, getUser } = await import('../lib/db');
+    const defaultUserId = 'default-user-id';
+    const defaultUser = await getUser(defaultUserId);
+    
+    if (!defaultUser) {
+      await createUser({
+        id: defaultUserId,
+        email: 'default@example.com',
+        firstName: 'Default',
+        lastName: 'User',
+      });
+    }
+    
+    return defaultUserId;
+  } catch (error) {
+    console.error('Error ensuring default user:', error);
+    throw new Error('Failed to initialize default user');
+  }
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    // Check if DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({ 
+        message: 'Database not configured. Please set DATABASE_URL environment variable.' 
+      });
+    }
+
+    if (req.method === 'GET') {
+      const { getConnections } = await import('../lib/db');
+      const defaultUserId = await ensureDefaultUser();
+      const allConnections = await getConnections(defaultUserId);
+      
+      // Filter for pending connections where the current user is the addressee
+      const pendingConnections = allConnections.filter(
+        (connection: any) => connection.status === 'pending' && connection.addresseeId === defaultUserId
+      );
+      
+      return res.status(200).json(pendingConnections);
+    }
+
+    return res.status(405).json({ message: 'Method not allowed' });
+  } catch (error) {
+    console.error('Error in pending connections API:', error);
+    return res.status(500).json({ 
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
