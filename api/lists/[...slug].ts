@@ -59,7 +59,7 @@ async function getLists(userId: string) {
   
   // For each list, get the related data
   const listsWithDetails = await Promise.all(
-    lists.map(async (list) => {
+    lists.map(async (list: any) => {
       // Get creator
       const [creator] = await database
         .select()
@@ -74,7 +74,7 @@ async function getLists(userId: string) {
       
       // Get participants with user data
       const participantsWithUsers = await Promise.all(
-        participants.map(async (participant) => {
+        participants.map(async (participant: any) => {
           const [user] = await database
             .select()
             .from(schema.users)
@@ -92,7 +92,7 @@ async function getLists(userId: string) {
       
       // Get items with user data
       const itemsWithUsers = await Promise.all(
-        items.map(async (item) => {
+        items.map(async (item: any) => {
           const [addedBy] = await database
             .select()
             .from(schema.users)
@@ -140,7 +140,7 @@ async function getListById(id: string) {
   
   // Get participants with user data
   const participantsWithUsers = await Promise.all(
-    participants.map(async (participant) => {
+    participants.map(async (participant: any) => {
       const [user] = await database
         .select()
         .from(schema.users)
@@ -211,7 +211,7 @@ async function getListItems(listId: string) {
   
   // Get items with user data
   const itemsWithUsers = await Promise.all(
-    items.map(async (item) => {
+    items.map(async (item: any) => {
       const [addedBy] = await database
         .select()
         .from(schema.users)

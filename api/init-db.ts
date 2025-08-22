@@ -3,9 +3,23 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import ws from "ws";
-import * as schema from "../schema";
+import { pgTable, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 neonConfig.webSocketConstructor = ws;
+
+// Minimal schema for users table
+const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const schema = { users };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {

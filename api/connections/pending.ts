@@ -109,8 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const allConnections = await getConnections(defaultUserId);
       
       // Filter for pending connections where the current user is the addressee
-      const pendingConnections = allConnections.filter(
-        (connection: any) => connection.status === 'pending' && connection.addresseeId === defaultUserId
+      const pendingConnections = allConnections.filter((connection: any) => 
+        connection.status === 'pending' && connection.addresseeId === defaultUserId
       );
       
       return res.status(200).json(pendingConnections);

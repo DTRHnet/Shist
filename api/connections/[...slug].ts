@@ -50,33 +50,16 @@ async function createConnection(connectionData: any) {
 
 async function getConnections(userId: string) {
   const database = await getDb();
-  const connections = await database
+  const allConnections = await database
     .select()
-    .from(schema.connections)
-    .where(or(eq(schema.connections.requesterId, userId), eq(schema.connections.addresseeId, userId)));
+    .from(schema.connections);
   
   // Get connections with user data
-  const connectionsWithUsers = await Promise.all(
-    connections.map(async (connection) => {
-      const [requester] = await database
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, connection.requesterId));
-      
-      const [addressee] = await database
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, connection.addresseeId));
-      
-      return {
-        ...connection,
-        requester,
-        addressee,
-      };
-    })
+  const userConnections = allConnections.filter((connection: any) => 
+    connection.requesterId === userId || connection.addresseeId === userId
   );
   
-  return connectionsWithUsers;
+  return userConnections;
 }
 
 async function updateConnectionStatus(id: string, status: string) {

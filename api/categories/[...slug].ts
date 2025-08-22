@@ -66,17 +66,16 @@ async function getCategories() {
   // Get all categories
   const allCategories = await database.select().from(schema.categories).orderBy(schema.categories.name);
   
-  // Organize into parent categories and subcategories
-  const parentCategories = allCategories.filter(cat => !cat.parentId);
-  const subcategories = allCategories.filter(cat => cat.parentId);
-  
-  // Add subcategories to their parent categories
-  const categoriesWithSubcategories = parentCategories.map(parent => ({
-    ...parent,
-    subcategories: subcategories.filter(sub => sub.parentId === parent.id)
+  // Transform categories to include subcategories
+  const categoriesWithSubs = allCategories.map((cat: any) => ({
+    ...cat,
+    subcategories: allCategories.filter((sub: any) => sub.parentId === cat.id)
   }));
+
+  // Filter to only top-level categories (no parentId)
+  const topLevelCategories = categoriesWithSubs.filter((parent: any) => !parent.parentId);
   
-  return categoriesWithSubcategories;
+  return topLevelCategories;
 }
 
 async function createCategory(categoryData: any) {
