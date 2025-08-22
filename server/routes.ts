@@ -18,6 +18,7 @@ import { z } from "zod";
 import { requirePermission } from "./guards";
 import { toErrorResponse } from "./errors";
 import { InvitationRoleSchema, roleToPermissions, signInvitationToken, verifyInvitationToken, globalRateLimiter, globalIdempotencyStore } from "./invitationsUtil";
+import { handleStripeWebhook } from "./stripeWebhooks";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Import auth functions based on environment
@@ -53,7 +54,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle both Replit and local auth user structures
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const user = await storage.getUser(userId);
-      res.json(user);
+      const sub = await storage.getSubscriptionByUserId(userId);
+      const isAdFree = (user?.adPreference === 'hide') || (sub && (sub.status === 'active' || sub.status === 'trialing'));
+      res.json({ ...user, isAdFree });
     } catch (error) {
       const { status, body } = toErrorResponse(error);
       res.status(status).json(body);
@@ -65,7 +68,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const user = await storage.getUser(userId);
-      res.json(user);
+      const sub = await storage.getSubscriptionByUserId(userId);
+      const isAdFree = (user?.adPreference === 'hide') || (sub && (sub.status === 'active' || sub.status === 'trialing'));
+      res.json({ ...user, isAdFree });
     } catch (error) {
       const { status, body } = toErrorResponse(error);
       res.status(status).json(body);
@@ -73,15 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Webhooks
-  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }) as any, async (req: any, res) => {
-    try {
-      // Intentionally simple: acknowledge receipt. Integrate signature verification as needed.
-      res.json({ received: true });
-    } catch (error) {
-      const { status, body } = toErrorResponse(error);
-      res.status(status).json(body);
-    }
-  });
+  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }) as any, handleStripeWebhook as any);
 
   // Connection routes
   app.post('/api/connections/invite', isAuthenticated, async (req: any, res) => {
