@@ -114,6 +114,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               first_name VARCHAR,
               last_name VARCHAR,
               profile_image_url VARCHAR,
+              role VARCHAR NOT NULL DEFAULT 'user',
+              is_active BOOLEAN NOT NULL DEFAULT true,
+              last_login_at TIMESTAMP,
               created_at TIMESTAMP DEFAULT NOW(),
               updated_at TIMESTAMP DEFAULT NOW()
             );
@@ -219,6 +222,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             email: 'kbs.bradley88@gmail.com',
             firstName: 'KBS',
             lastName: 'Bradley',
+            role: 'god', // Give admin privileges for testing
+            isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),
           };

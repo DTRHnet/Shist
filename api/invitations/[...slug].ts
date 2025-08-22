@@ -22,14 +22,17 @@ const users = pgTable("users", {
 
 const invitations = pgTable("invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  token: varchar("token").unique().notNull(),
-  senderId: varchar("sender_id").notNull().references(() => users.id),
-  recipientEmail: varchar("recipient_email").notNull(),
-  status: varchar("status").notNull().default("pending"),
+  inviterId: varchar("inviter_id").notNull().references(() => users.id),
+  recipientEmail: varchar("recipient_email"),
+  recipientPhone: varchar("recipient_phone"),
+  invitationType: varchar("invitation_type").notNull(), // "connection" or "list"
+  listId: varchar("list_id"), // null for connection invites
+  status: varchar("status").notNull().default("pending"), // pending, accepted, expired, cancelled
+  token: varchar("token").notNull().unique(), // unique invitation token
   expiresAt: timestamp("expires_at").notNull(),
-  metadata: jsonb("metadata"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 const schema = { users, invitations };
@@ -98,6 +101,73 @@ function generateInvitationToken(): string {
 function getExpirationDate(): Date {
   // 7 days from now
   return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+}
+
+// Email service (mock implementation - replace with real service in production)
+async function sendInvitationEmail(
+  recipientEmail: string,
+  inviterName: string,
+  invitationLink: string,
+  invitationType: 'connection' | 'list',
+  listName?: string
+): Promise<void> {
+  const subject = invitationType === 'list' 
+    ? `${inviterName} invited you to collaborate on "${listName}"`
+    : `${inviterName} wants to connect with you on Shist`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">🎯 Shist Invitation</h1>
+      </div>
+      
+      <div style="padding: 30px; background: #f8f9fa;">
+        <h2 style="color: #333; margin-top: 0;">You're Invited!</h2>
+        
+        <p style="font-size: 16px; color: #555; line-height: 1.6;">
+          <strong>${inviterName}</strong> has invited you to 
+          ${invitationType === 'list' ? `collaborate on the list "<strong>${listName}</strong>"` : 'connect'} 
+          on Shist - the collaborative list app that keeps you organized together.
+        </p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${invitationLink}" style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            display: inline-block;
+            transition: transform 0.2s;
+          ">Accept Invitation</a>
+        </div>
+        
+        <p style="font-size: 14px; color: #777; line-height: 1.6;">
+          With Shist, you can create shared lists, collaborate in real-time, and stay organized together.
+        </p>
+      </div>
+    </div>
+  `;
+
+  // In production, implement with your chosen email service (SendGrid, Nodemailer, etc.)
+  console.log('📧 Would send email:', { recipientEmail, subject, htmlContent });
+}
+
+// SMS service (mock implementation - replace with real service in production)
+async function sendInvitationSMS(
+  recipientPhone: string,
+  inviterName: string,
+  invitationLink: string,
+  invitationType: 'connection' | 'list',
+  listName?: string
+): Promise<void> {
+  const message = invitationType === 'list'
+    ? `🎯 ${inviterName} invited you to collaborate on "${listName}" in Shist! Accept: ${invitationLink}`
+    : `🎯 ${inviterName} wants to connect with you on Shist! Accept: ${invitationLink}`;
+
+  // In production, implement with your chosen SMS service (Twilio, etc.)
+  console.log('📱 Would send SMS:', { recipientPhone, message });
 }
 
 // Ensure default user exists
@@ -214,17 +284,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (path === '/invitations') {
       if (req.method === 'POST') {
         const defaultUserId = await ensureDefaultUser();
+        const inviter = await getUser(defaultUserId);
         
+        // Validate invitation data
+        if (!req.body.recipientEmail && !req.body.recipientPhone) {
+          return res.status(400).json({ message: 'Either email or phone is required' });
+        }
+        
+        if (!req.body.invitationType || !['connection', 'list'].includes(req.body.invitationType)) {
+          return res.status(400).json({ message: 'Invalid invitation type' });
+        }
+        
+        // Create invitation
         const invitation = await createInvitation({
           token: generateInvitationToken(),
           inviterId: defaultUserId,
           recipientEmail: req.body.recipientEmail,
           recipientPhone: req.body.recipientPhone,
-          invitationType: req.body.invitationType || 'connection',
+          invitationType: req.body.invitationType,
           listId: req.body.listId,
           expiresAt: getExpirationDate(),
           status: 'pending',
         });
+        
+        // Generate invitation link
+        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+        const invitationLink = `${baseUrl}/invite/${invitation.token}`;
+        
+        // Get list name if it's a list invitation
+        let listName: string | undefined = undefined;
+        if (req.body.listId && req.body.invitationType === 'list') {
+          // In a real implementation, you'd fetch the list name here
+          listName = 'Shared List';
+        }
+        
+        // Send invitation via email or SMS
+        try {
+          if (req.body.recipientEmail) {
+            await sendInvitationEmail(
+              req.body.recipientEmail,
+              inviter.firstName || inviter.email || 'Someone',
+              invitationLink,
+              req.body.invitationType,
+              listName
+            );
+          } else if (req.body.recipientPhone) {
+            await sendInvitationSMS(
+              req.body.recipientPhone,
+              inviter.firstName || inviter.email || 'Someone',
+              invitationLink,
+              req.body.invitationType,
+              listName
+            );
+          }
+        } catch (sendError) {
+          console.error('Error sending invitation:', sendError);
+          // Still return success since invitation was created
+        }
+        
         return res.status(201).json(invitation);
       }
       

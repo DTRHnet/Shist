@@ -3,12 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useMonetization } from "@/hooks/useMonetization";
+import { UserManagement } from "@/components/user-management";
 import type { User } from "@shared/schema";
-import { User as UserIcon, Crown, LogOut, Shield, Bell, Smartphone, Star, Gift } from "lucide-react";
+import { User as UserIcon, Crown, LogOut, Shield, Bell, Smartphone, Star, Gift, Users } from "lucide-react";
 
 export default function Settings() {
   const { user } = useAuth() as { user: User | undefined };
   const { isPremium, upgradeToPremium, resetPremium, adCount } = useMonetization();
+  
+  // Check if user has admin permissions
+  const isAdmin = user?.role === 'god' || user?.role === 'mod';
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
@@ -184,6 +188,21 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Admin Panel */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Users className="mr-2" size={20} />
+                User Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <UserManagement />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Account Actions */}
         <Card>
