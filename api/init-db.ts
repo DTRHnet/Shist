@@ -96,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    if (req.method === 'POST') {
+    if (req.method === 'POST' || req.method === 'GET') {
       const pool = new Pool({ connectionString: process.env.DATABASE_URL });
       const db = drizzle({ client: pool, schema });
 
