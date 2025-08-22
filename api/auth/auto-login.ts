@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const { createUser, getUser } = await import('../lib/db');
+    const { createUser, getUser } = await import('../lib/db.js');
     const defaultUserId = 'default-user-id';
     const defaultUser = await getUser(defaultUserId);
     
@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-      const { getUser } = await import('../lib/db');
+      const { getUser } = await import('../lib/db.js');
       const defaultUserId = await ensureDefaultUser();
       const user = await getUser(defaultUserId);
       

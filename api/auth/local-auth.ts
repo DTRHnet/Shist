@@ -10,7 +10,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-      const { createUser, getUser } = await import('../lib/db');
+      const { createUser, getUser } = await import('../lib/db.js');
       
       const { email, name } = req.body;
       
