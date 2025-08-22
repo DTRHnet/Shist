@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const { createUser, getUser } = await import('../lib/db');
+    const { createUser, getUser } = await import('../lib/db.js');
     const defaultUserId = 'default-user-id';
     const defaultUser = await getUser(defaultUserId);
     
@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId, itemId] = itemMatch;
       
       if (req.method === 'PATCH') {
-        const { updateListItem } = await import('../lib/db');
+        const { updateListItem } = await import('../lib/db.js');
         const item = await updateListItem(itemId, {
           content: req.body.content,
           note: req.body.note,
@@ -53,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'DELETE') {
-        const { deleteListItem } = await import('../lib/db');
+        const { deleteListItem } = await import('../lib/db.js');
         await deleteListItem(itemId);
         return res.status(200).json({ success: true });
       }
@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = participantsMatch;
       
       if (req.method === 'POST') {
-        const { addListParticipant } = await import('../lib/db');
+        const { addListParticipant } = await import('../lib/db.js');
         const participant = await addListParticipant({
           listId,
           userId: req.body.userId,
@@ -87,13 +87,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = itemsMatch;
       
       if (req.method === 'GET') {
-        const { getListItems } = await import('../lib/db');
+        const { getListItems } = await import('../lib/db.js');
         const items = await getListItems(listId);
         return res.status(200).json(items);
       }
       
       if (req.method === 'POST') {
-        const { addListItem } = await import('../lib/db');
+        const { addListItem } = await import('../lib/db.js');
         const defaultUserId = await ensureDefaultUser();
         
         const item = await addListItem({
@@ -117,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = listMatch;
       
       if (req.method === 'GET') {
-        const { getListById } = await import('../lib/db');
+        const { getListById } = await import('../lib/db.js');
         const list = await getListById(listId);
         
         if (!list) {
@@ -128,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'PATCH') {
-        const { updateList } = await import('../lib/db');
+        const { updateList } = await import('../lib/db.js');
         const list = await updateList(listId, {
           name: req.body.name,
           description: req.body.description,
@@ -138,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'DELETE') {
-        const { deleteList } = await import('../lib/db');
+        const { deleteList } = await import('../lib/db.js');
         await deleteList(listId);
         return res.status(200).json({ success: true });
       }
@@ -152,7 +152,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, listId] = altListMatch;
       
       if (req.method === 'GET') {
-        const { getListById } = await import('../lib/db');
+        const { getListById } = await import('../lib/db.js');
         const list = await getListById(listId);
         
         if (!list) {
@@ -168,14 +168,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /lists
     if (path === '/lists') {
       if (req.method === 'GET') {
-        const { getLists } = await import('../lib/db');
+        const { getLists } = await import('../lib/db.js');
         const defaultUserId = await ensureDefaultUser();
         const lists = await getLists(defaultUserId);
         return res.status(200).json(lists);
       }
       
       if (req.method === 'POST') {
-        const { createList, addListParticipant } = await import('../lib/db');
+        const { createList, addListParticipant } = await import('../lib/db.js');
         const defaultUserId = await ensureDefaultUser();
         
         const list = await createList({

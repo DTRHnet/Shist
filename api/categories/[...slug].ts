@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const categoryId = categoryIdMatch[1];
       
       if (req.method === 'GET') {
-        const { getCategoryById } = await import('../lib/db');
+        const { getCategoryById } = await import('../lib/db.js');
         const category = await getCategoryById(categoryId);
         
         if (!category) {
@@ -34,13 +34,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /categories
     if (path === '/categories') {
       if (req.method === 'GET') {
-        const { getCategories } = await import('../lib/db');
+        const { getCategories } = await import('../lib/db.js');
         const categories = await getCategories();
         return res.status(200).json(categories);
       }
       
       if (req.method === 'POST') {
-        const { createCategory } = await import('../lib/db');
+        const { createCategory } = await import('../lib/db.js');
         const category = await createCategory({
           name: req.body.name,
           icon: req.body.icon || '📝',

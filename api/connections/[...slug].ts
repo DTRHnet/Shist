@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const { createUser, getUser } = await import('../lib/db');
+    const { createUser, getUser } = await import('../lib/db.js');
     const defaultUserId = 'default-user-id';
     const defaultUser = await getUser(defaultUserId);
     
@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const [, connectionId] = statusMatch;
       
       if (req.method === 'PATCH') {
-        const { updateConnectionStatus } = await import('../lib/db');
+        const { updateConnectionStatus } = await import('../lib/db.js');
         const connection = await updateConnectionStatus(connectionId, req.body.status);
         return res.status(200).json(connection);
       }
@@ -52,14 +52,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle /connections
     if (path === '/connections') {
       if (req.method === 'GET') {
-        const { getConnections } = await import('../lib/db');
+        const { getConnections } = await import('../lib/db.js');
         const defaultUserId = await ensureDefaultUser();
         const connections = await getConnections(defaultUserId);
         return res.status(200).json(connections);
       }
       
       if (req.method === 'POST') {
-        const { createConnection } = await import('../lib/db');
+        const { createConnection } = await import('../lib/db.js');
         const defaultUserId = await ensureDefaultUser();
         
         const connection = await createConnection({
