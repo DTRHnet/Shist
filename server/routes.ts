@@ -492,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateConnectionStatus(existingConnection.id, 'accepted');
         }
       } else if (invitation.invitationType === 'list' && invitation.listId) {
-        // Add user to the list
+        // Add user to the list with default VIEWER role (canAdd true)
         await storage.addListParticipant({
           listId: invitation.listId,
           userId: userId,
