@@ -78,15 +78,15 @@ async function getUser(id: string) {
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const defaultUserId = 'temp-user-id';
+    const defaultUserId = 'kbs-user-id';
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
       await createUser({
         id: defaultUserId,
-        email: 'temp@example.com',
-        firstName: 'Temp',
-        lastName: 'User',
+        email: 'kbs.bradley88@gmail.com',
+        firstName: 'KBS',
+        lastName: 'Bradley',
       });
     }
     
@@ -94,7 +94,7 @@ async function ensureDefaultUser() {
   } catch (error) {
     console.error('Error ensuring default user:', error);
     // Return a fallback user ID
-    return 'temp-user-id';
+    return 'kbs-user-id';
   }
 }
 
@@ -116,9 +116,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Return a fallback user if database is not available
         const fallbackUser = {
           id: defaultUserId,
-          email: 'temp@example.com',
-          firstName: 'Temp',
-          lastName: 'User',
+          email: 'kbs.bradley88@gmail.com',
+          firstName: 'KBS',
+          lastName: 'Bradley',
           createdAt: new Date(),
           updatedAt: new Date(),
         };

@@ -5,12 +5,12 @@ import { useEffect } from "react";
 // Check if we're in local development mode
 const isLocalDev = !import.meta.env.VITE_REPL_ID || import.meta.env.VITE_LOCAL_DEV === 'true';
 
-// TEMPORARY: Mock user to bypass authentication
+// TEMPORARY: Mock user with your actual email for testing
 const mockUser = {
-  id: "temp-user-id",
-  email: "temp@example.com",
-  firstName: "Temp",
-  lastName: "User",
+  id: "kbs-user-id",
+  email: "kbs.bradley88@gmail.com",
+  firstName: "KBS",
+  lastName: "Bradley",
   createdAt: new Date(),
   updatedAt: new Date(),
 };

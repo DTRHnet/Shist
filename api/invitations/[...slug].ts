@@ -103,15 +103,15 @@ function getExpirationDate(): Date {
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const defaultUserId = 'temp-user-id';
+    const defaultUserId = 'kbs-user-id';
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
       await createUser({
         id: defaultUserId,
-        email: 'temp@example.com',
-        firstName: 'Temp',
-        lastName: 'User',
+        email: 'kbs.bradley88@gmail.com',
+        firstName: 'KBS',
+        lastName: 'Bradley',
       });
     }
     
