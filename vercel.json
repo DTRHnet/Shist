@@ -1,19 +1,23 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "client/dist" }
-    },
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node"
+  "buildCommand": "npm run vercel:build",
+  "outputDirectory": "dist/public",
+  "functions": {
+    "api/**": {
+      "memory": 1024,
+      "maxDuration": 10,
+      "regions": ["iad1", "sfo1"]
     }
-  ],
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "dist/index.js" },
     { "handle": "filesystem" },
-    { "src": "/.*", "dest": "client/dist/index.html" }
+    { "src": "/.*", "dest": "dist/public/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/invitations/cleanup",
+      "schedule": "0 4 * * *"
+    }
   ]
 }
