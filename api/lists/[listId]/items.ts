@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import ws from "ws";
 import { pgTable, varchar, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { ensureDbInitialized } from '../../shared/db-init';
+import { ensureDbInitialized } from '../shared/db-init';
 
 neonConfig.webSocketConstructor = ws;
 
