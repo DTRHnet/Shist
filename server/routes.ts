@@ -16,7 +16,8 @@ import {
 import { createInvitationServices, InvitationUtils } from "./invitationService";
 import { z } from "zod";
 import { requirePermission } from "./guards";
-import { toErrorResponse, badRequest } from "./errors";
+import { toErrorResponse } from "./errors";
+import { InvitationRoleSchema, roleToPermissions, signInvitationToken, verifyInvitationToken, globalRateLimiter, globalIdempotencyStore } from "./invitationsUtil";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Import auth functions based on environment
@@ -459,18 +460,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Invitation routes
   const { emailService, smsService } = createInvitationServices();
 
-  // Create invitation
+  // Create invitation (with rate limit and signed token)
   app.post('/api/invitations', isAuthenticated, async (req: any, res) => {
     try {
+      const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+      if (!globalRateLimiter.allow(`invite:create:${ip}`, 5, 10 * 60 * 1000)) {
+        return res.status(429).json({ error: { code: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded' } });
+      }
+
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      const role = InvitationRoleSchema.parse(req.body.role ?? 'viewer');
       const invitationData = insertInvitationSchema.parse({
         ...req.body,
         inviterId: userId,
         expiresAt: InvitationUtils.getExpirationDate(),
       });
 
-      // Generate unique token
-      const token = InvitationUtils.generateInvitationToken();
+      // Generate signed token including role
+      const payload = {
+        jti: cryptoRandom(),
+        inviterId: userId,
+        listId: invitationData.listId,
+        invitationType: invitationData.invitationType as 'connection' | 'list',
+        role,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(InvitationUtils.getExpirationDate().getTime() / 1000),
+      } as const;
+      const token = signInvitationToken(payload);
+
       const invitation = await storage.createInvitation({
         ...invitationData,
         token,
@@ -528,6 +545,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  function cryptoRandom() {
+    return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
+
   // Get received invitations
   app.get('/api/invitations/received', isAuthenticated, async (req: any, res) => {
     try {
@@ -552,11 +573,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accept invitation by token
+  // Accept invitation by token with idempotency and rate limiting
   app.post('/api/invitations/accept/:token', isAuthenticated, async (req: any, res) => {
     try {
+      const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+      if (!globalRateLimiter.allow(`invite:accept:${ip}`, 10, 10 * 60 * 1000)) {
+        return res.status(429).json({ error: { code: 'TOO_MANY_REQUESTS', message: 'Rate limit exceeded' } });
+      }
+
+      const idemKey = req.header('Idempotency-Key');
+      if (!idemKey) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing Idempotency-Key header' } });
+      }
+      if (globalIdempotencyStore.has(idemKey)) {
+        return res.status(200).json({ message: 'Already accepted' });
+      }
+
       const { token } = req.params;
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+
+      // Verify token signature and expiry
+      let decoded: any;
+      try {
+        decoded = verifyInvitationToken(token);
+      } catch (e: any) {
+        return res.status(400).json({ error: { code: 'BAD_TOKEN', message: e?.message || 'Invalid token' } });
+      }
 
       const invitation = await storage.getInvitationByToken(token);
       if (!invitation) {
@@ -569,6 +611,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (new Date(invitation.expiresAt) < new Date()) {
         return res.status(400).json({ error: { code: 'BAD_REQUEST', message: "Invitation has expired" } });
+      }
+
+      // Upsert user record (best-effort)
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        const email = req.user.claims?.email || req.user.email;
+        await storage.upsertUser({ id: userId, email });
       }
 
       // Process the invitation based on type
@@ -589,18 +638,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateConnectionStatus(existingConnection.id, 'accepted');
         }
       } else if (invitation.invitationType === 'list' && invitation.listId) {
-        // Add user to the list with default VIEWER role (canAdd true)
+        // Assign permissions based on role from token
+        const perms = roleToPermissions(decoded.role || 'viewer');
         await storage.addListParticipant({
           listId: invitation.listId,
           userId: userId,
-          canAdd: true,
-          canEdit: false,
-          canDelete: false,
+          ...perms,
         });
       }
 
-      // Mark invitation as accepted
+      // Mark invitation as accepted and remember idempotency key
       await storage.updateInvitationStatus(invitation.id, 'accepted', new Date());
+      globalIdempotencyStore.add(idemKey);
 
       res.json({ message: "Invitation accepted successfully" });
     } catch (error) {
