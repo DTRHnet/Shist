@@ -1,0 +1,10 @@
+node_modules/
+**/.cache/
+**/.turbo/
+**/.vite/
+**/.vitest/
+**/.DS_Store
+**/*.log
+client/node_modules/
+server/node_modules/
+dist/public/*.map
