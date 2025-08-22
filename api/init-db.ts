@@ -41,9 +41,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         // Try to create a test user
         const testUser = {
-          id: 'test-user',
-          email: 'test@example.com',
-          firstName: 'Test',
+          id: 'temp-user-id',
+          email: 'temp@example.com',
+          firstName: 'Temp',
           lastName: 'User',
           createdAt: new Date(),
           updatedAt: new Date(),

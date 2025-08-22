@@ -3,9 +3,23 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import ws from "ws";
-import * as schema from "../schema";
+import { pgTable, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 neonConfig.webSocketConstructor = ws;
+
+// Inline schema definitions
+const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const schema = { users };
 
 let db: any;
 
@@ -64,14 +78,14 @@ async function getUser(id: string) {
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const defaultUserId = 'default-user-id';
+    const defaultUserId = 'temp-user-id';
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
       await createUser({
         id: defaultUserId,
-        email: 'default@example.com',
-        firstName: 'Default',
+        email: 'temp@example.com',
+        firstName: 'Temp',
         lastName: 'User',
       });
     }
@@ -80,7 +94,7 @@ async function ensureDefaultUser() {
   } catch (error) {
     console.error('Error ensuring default user:', error);
     // Return a fallback user ID
-    return 'default-user-id';
+    return 'temp-user-id';
   }
 }
 
@@ -102,8 +116,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Return a fallback user if database is not available
         const fallbackUser = {
           id: defaultUserId,
-          email: 'default@example.com',
-          firstName: 'Default',
+          email: 'temp@example.com',
+          firstName: 'Temp',
           lastName: 'User',
           createdAt: new Date(),
           updatedAt: new Date(),

@@ -3,10 +3,36 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import ws from "ws";
-import * as schema from "../schema";
+import { pgTable, varchar, timestamp, jsonb, uuid, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 
 neonConfig.webSocketConstructor = ws;
+
+// Inline schema definitions
+const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const invitations = pgTable("invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token").unique().notNull(),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  recipientEmail: varchar("recipient_email").notNull(),
+  status: varchar("status").notNull().default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const schema = { users, invitations };
 
 let db: any;
 
@@ -77,14 +103,14 @@ function getExpirationDate(): Date {
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const defaultUserId = 'default-user-id';
+    const defaultUserId = 'temp-user-id';
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
       await createUser({
         id: defaultUserId,
-        email: 'default@example.com',
-        firstName: 'Default',
+        email: 'temp@example.com',
+        firstName: 'Temp',
         lastName: 'User',
       });
     }

@@ -3,9 +3,57 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq, or } from 'drizzle-orm';
 import ws from "ws";
-import * as schema from "../schema";
+import { pgTable, varchar, timestamp, jsonb, uuid, index, boolean } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 neonConfig.webSocketConstructor = ws;
+
+// Inline schema definitions
+const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const lists = pgTable("lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: varchar("description"),
+  isPublic: boolean("is_public").default(false),
+  creatorId: varchar("creator_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const listParticipants = pgTable("list_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => lists.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  canAdd: boolean("can_add").default(true),
+  canEdit: boolean("can_edit").default(false),
+  canDelete: boolean("can_delete").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const listItems = pgTable("list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => lists.id),
+  content: varchar("content").notNull(),
+  note: varchar("note"),
+  url: varchar("url"),
+  categoryId: varchar("category_id"),
+  addedById: varchar("added_by_id").notNull().references(() => users.id),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const schema = { users, lists, listParticipants, listItems };
 
 let db: any;
 
@@ -247,14 +295,14 @@ async function addListParticipant(participantData: any) {
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const defaultUserId = 'default-user-id';
+    const defaultUserId = 'temp-user-id';
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
       await createUser({
         id: defaultUserId,
-        email: 'default@example.com',
-        firstName: 'Default',
+        email: 'temp@example.com',
+        firstName: 'Temp',
         lastName: 'User',
       });
     }
