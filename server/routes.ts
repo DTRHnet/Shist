@@ -19,6 +19,7 @@ import { requirePermission } from "./guards";
 import { toErrorResponse } from "./errors";
 import { InvitationRoleSchema, roleToPermissions, signInvitationToken, verifyInvitationToken, globalRateLimiter, globalIdempotencyStore } from "./invitationsUtil";
 import { handleStripeWebhook } from "./stripeWebhooks";
+import { track } from "./analytics";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Import auth functions based on environment
@@ -78,7 +79,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Webhooks
-  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }) as any, handleStripeWebhook as any);
+  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }) as any, async (req: any, res) => {
+    await handleStripeWebhook(req, res);
+    try {
+      const userId = req.body?.data?.object?.metadata?.userId;
+      const status = req.body?.data?.object?.status;
+      if (userId && status) track(req, { type: 'subscription_updated', userId, status });
+    } catch {}
+  });
 
   // Connection routes
   app.post('/api/connections/invite', isAuthenticated, async (req: any, res) => {
@@ -170,6 +178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         canDelete: true,
       });
 
+      track(req, { type: 'list_created', listId: list.id, userId });
       res.json(list);
     } catch (error) {
       const { status, body } = toErrorResponse(error);
@@ -521,6 +530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invitationData.invitationType as 'connection' | 'list',
             listName
           );
+          track(req, { type: 'invite_sent', listId: invitationData.listId, inviterId: userId, channel: 'email' });
         } else if (invitationData.recipientPhone) {
           await smsService.sendInvitationSMS(
             invitationData.recipientPhone,
@@ -529,6 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invitationData.invitationType as 'connection' | 'list',
             listName
           );
+          track(req, { type: 'invite_sent', listId: invitationData.listId, inviterId: userId, channel: 'sms' });
         }
       } catch (sendError) {
         console.error('Error sending invitation:', sendError);
@@ -648,6 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateInvitationStatus(invitation.id, 'accepted', new Date());
       globalIdempotencyStore.add(idemKey);
 
+      track(req, { type: 'invite_accepted', listId: invitation.listId, userId });
       res.json({ message: "Invitation accepted successfully" });
     } catch (error) {
       const { status, body } = toErrorResponse(error);

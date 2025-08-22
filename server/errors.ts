@@ -24,3 +24,13 @@ export function toErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : 'Unknown error';
   return { status: 500, body: { error: { code: 'INTERNAL', message } } };
 }
+
+// Express error handler
+import type { Request, Response, NextFunction } from 'express';
+import { logError } from './logger';
+
+export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction) {
+  const { status, body } = toErrorResponse(err);
+  logError(req, err);
+  res.status(status).json(body);
+}
