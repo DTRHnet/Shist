@@ -319,6 +319,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = req.url || '';
     const path = url.replace(/^\/api/, '');
     
+    console.log('Lists API - Method:', req.method, 'Path:', path, 'URL:', url);
+    
     // Check if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
       return res.status(500).json({ 
@@ -449,6 +451,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Handle /lists
     if (path === '/lists') {
+      console.log('Handling /lists route - Method:', req.method);
+      
       if (req.method === 'GET') {
         const defaultUserId = await ensureDefaultUser();
         const lists = await getLists(defaultUserId);
@@ -456,6 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       if (req.method === 'POST') {
+        console.log('Creating list with body:', req.body);
         const defaultUserId = await ensureDefaultUser();
         
         const list = await createList({
@@ -477,10 +482,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(201).json(list);
       }
       
-      return res.status(405).json({ message: 'Method not allowed' });
+      return res.status(405).json({ message: 'Method not allowed for /lists' });
     }
 
     // fallback: no matching route
+    console.log('No matching route found for path:', path);
     return res.status(404).json({ ok: false, error: 'no matching route', path });
   } catch (error) {
     console.error('Error in lists API:', error);
