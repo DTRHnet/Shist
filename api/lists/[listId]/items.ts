@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import ws from "ws";
 import { pgTable, varchar, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -84,7 +84,10 @@ async function getListParticipant(listId: string, userId: string) {
   const [participant] = await database
     .select()
     .from(schema.listParticipants)
-    .where(eq(schema.listParticipants.listId, listId) && eq(schema.listParticipants.userId, userId));
+    .where(and(
+      eq(schema.listParticipants.listId, listId),
+      eq(schema.listParticipants.userId, userId)
+    ));
   return participant;
 }
 
