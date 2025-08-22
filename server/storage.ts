@@ -28,12 +28,10 @@ import {
   type ListItemWithDetails,
 } from "@shared/schema";
 // Use appropriate database connection based on environment
-const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
-
-let db: any;
+//const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
 
 async function initializeDatabase() {
-  if (isLocalDev) {
+  /*if (isLocalDev) {
     console.log("Using local PostgreSQL database");
     const { db: localDb } = await import("./localDb");
     return localDb;
@@ -41,14 +39,21 @@ async function initializeDatabase() {
     console.log("Using Neon serverless database");
     const { db: neonDb } = await import("./db");
     return neonDb;
-  }
+  }*/
 }
 
-// Initialize database connection
-const dbPromise = initializeDatabase();
-db = await dbPromise;
-
 import { eq, and, or, desc, sql } from "drizzle-orm";
+
+// Initialize database connection
+let db: any;
+
+async function initializeDb() {
+  if (!db) {
+    const dbPromise = initializeDatabase();
+    db = await dbPromise;
+  }
+  return db;
+}
 
 export interface IStorage {
   // User operations - mandatory for Replit Auth
