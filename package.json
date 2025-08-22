@@ -19,6 +19,7 @@
     "prisma:migrate:dev": "prisma migrate dev --name init",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "postdeploy": "tsx scripts/post-deploy.ts",
     "vercel-build": "npm run build",
     "test": "vitest run"
   },
