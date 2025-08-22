@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import ws from "ws";
 import { pgTable, varchar, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { ensureDbInitialized } from '../shared/db-init';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -51,6 +52,7 @@ async function getDb() {
       throw new Error("DATABASE_URL must be set");
     }
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await ensureDbInitialized(pool);
     db = drizzle({ client: pool, schema });
   }
   return db;
@@ -158,101 +160,73 @@ function generateHTMLTemplate(list: any) {
         }
         .header .meta {
             font-size: 14px;
-            opacity: 0.8;
+            opacity: 0.9;
         }
         .content {
-            padding: 32px;
+            padding: 24px;
         }
-        .stats {
+        .section {
+            margin-bottom: 24px;
+        }
+        .section h2 {
+            font-size: 18px;
+            margin: 0 0 12px 0;
+        }
+        .items {
+            display: grid;
+            gap: 12px;
+        }
+        .footer {
+            padding: 16px 24px;
+            background: #f3f4f6;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+            color: #6b7280;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            padding: 16px;
-            background: #f3f4f6;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #6b7280;
         }
-        .items-container {
-            margin-top: 24px;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 48px 24px;
-            color: #6b7280;
-        }
-        .empty-state h3 {
-            margin: 0 0 8px 0;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        .empty-state p {
-            margin: 0;
-            font-size: 14px;
-        }
-        .footer {
-            text-align: center;
-            padding: 24px;
-            border-top: 1px solid #e5e7eb;
-            color: #6b7280;
-            font-size: 14px;
-        }
-        .footer a {
-            color: #3b82f6;
-            text-decoration: none;
-        }
-        @media (max-width: 640px) {
-            body { padding: 12px; }
-            .header { padding: 24px; }
-            .content { padding: 24px; }
-            .header h1 { font-size: 24px; }
-        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            background: #eef2ff;
+            color: #3730a3;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+          }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>${list.name}</h1>
-            ${list.description ? `<div class="description">${list.description}</div>` : ''}
+            <div class="description">${list.description || ''}</div>
             <div class="meta">
-                Created by ${list.creator?.firstName || list.creator?.email || 'Unknown'} • 
-                ${list.itemCount} items • 
-                Updated ${new Date(list.updatedAt).toLocaleDateString()}
+                <span>${list.itemCount} items</span>
+                ${list.creator ? `<span class="badge">Created by ${list.creator.firstName || list.creator.email || 'Unknown'}</span>` : ''}
             </div>
         </div>
-        
         <div class="content">
-            <div class="stats">
-                <span>📋 ${list.itemCount} items</span>
-                <span>👤 ${list.creator?.firstName || list.creator?.email || 'Unknown'}</span>
-                <span>📅 ${new Date(list.createdAt).toLocaleDateString()}</span>
-            </div>
-            
-            <div class="items-container">
-                ${items.length > 0 ? itemsHTML : `
-                    <div class="empty-state">
-                        <h3>No items yet</h3>
-                        <p>This list is empty. Items will appear here when they're added.</p>
-                    </div>
-                `}
+            <div class="section">
+                <h2>Items</h2>
+                <div class="items">
+                  ${itemsHTML}
+                </div>
             </div>
         </div>
-        
         <div class="footer">
-            <p>Shared via <a href="https://shist.app">Shist</a> • 
-            <a href="https://shist.app">Create your own list</a></p>
+            <span>Shared via Shist</span>
+            <a href="/" style="color: #3b82f6; text-decoration: none;">Go to app</a>
         </div>
     </div>
 </body>
-</html>`;
+</html>
+  `;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const { listId } = req.query;
-    console.log('Public List API - Method:', req.method, 'ListId:', listId);
-    
     // Check if DATABASE_URL is set
     if (!process.env.DATABASE_URL) {
       return res.status(500).json({ 
@@ -260,38 +234,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    if (!listId || typeof listId !== 'string') {
+    const { listId } = req.query as { listId?: string };
+
+    if (!listId) {
       return res.status(400).json({ message: 'List ID is required' });
     }
 
     if (req.method === 'GET') {
-      console.log('Getting public list:', listId);
-      
       const list = await getListWithDetails(listId);
+
       if (!list) {
         return res.status(404).json({ message: 'List not found' });
       }
 
-      if (!list.isPublic) {
-        return res.status(403).json({ message: 'This list is private' });
-      }
-
-      // Generate HTML template
-      const html = generateHTMLTemplate(list);
-      
-      // Set headers for HTML response
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
-      
-      return res.status(200).send(html);
+      // For Vercel, return HTML with appropriate headers
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(200).send(generateHTMLTemplate(list));
     }
-    
-    return res.status(405).json({ message: 'Method not allowed for public lists' });
+
+    return res.status(405).json({ message: 'Method not allowed' });
   } catch (error) {
-    console.error('Error in public list API:', error);
+    console.error('Error in list/[listId] API:', error);
     return res.status(500).json({ 
       message: 'Internal server error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
   }
 }
