@@ -16,6 +16,7 @@ const Invitations = lazy(() => import("@/pages/invitations"));
 const Settings = lazy(() => import("@/pages/settings"));
 import NotFound from "@/pages/not-found";
 import LocalLogin from "@/pages/local-login";
+import Error500 from "@/pages/error-500";
 
 // Check if we're in local development mode
 const isLocalDev = !import.meta.env.VITE_REPL_ID || import.meta.env.VITE_LOCAL_DEV === 'true';
@@ -62,6 +63,7 @@ function Router() {
             </Suspense>
           </>
         )}
+        <Route path="/error" component={Error500} />
         <Route component={NotFound} />
       </Switch>
       
