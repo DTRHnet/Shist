@@ -6,6 +6,7 @@ import ws from "ws";
 import { pgTable, varchar, timestamp, jsonb, uuid, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { ensureDbInitialized } from '../shared/db-init';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -45,6 +46,7 @@ async function getDb() {
       throw new Error("DATABASE_URL must be set");
     }
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await ensureDbInitialized(pool);
     db = drizzle({ client: pool, schema });
   }
   return db;
