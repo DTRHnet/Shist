@@ -3,12 +3,12 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import ws from "ws";
-import { pgTable, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, timestamp, jsonb, uuid, index, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 neonConfig.webSocketConstructor = ws;
 
-// Minimal schema for users table
+// Complete schema definitions
 const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -19,7 +19,72 @@ const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-const schema = { users };
+const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  icon: varchar("icon").notNull(),
+  parentId: uuid("parent_id").references((): any => categories.id),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const lists = pgTable("lists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: varchar("description"),
+  isPublic: boolean("is_public").default(false),
+  creatorId: varchar("creator_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const listParticipants = pgTable("list_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => lists.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  canAdd: boolean("can_add").default(true),
+  canEdit: boolean("can_edit").default(false),
+  canDelete: boolean("can_delete").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const listItems = pgTable("list_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  listId: varchar("list_id").notNull().references(() => lists.id),
+  content: varchar("content").notNull(),
+  note: varchar("note"),
+  url: varchar("url"),
+  categoryId: varchar("category_id"),
+  addedById: varchar("added_by_id").notNull().references(() => users.id),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const connections = pgTable("connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requesterId: varchar("requester_id").notNull().references(() => users.id),
+  addresseeId: varchar("addressee_id").notNull().references(() => users.id),
+  status: varchar("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const invitations = pgTable("invitations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token").unique().notNull(),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  recipientEmail: varchar("recipient_email").notNull(),
+  status: varchar("status").notNull().default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+const schema = { users, categories, lists, listParticipants, listItems, connections, invitations };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -39,36 +104,141 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Test database connection
         await pool.query('SELECT 1');
         
-        // Try to create a test user
-        const testUser = {
-          id: 'temp-user-id',
-          email: 'temp@example.com',
-          firstName: 'Temp',
-          lastName: 'User',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
+        // Create tables using Drizzle's migrate function
         try {
-          const [user] = await db
-            .insert(schema.users)
-            .values(testUser)
-            .onConflictDoUpdate({
-              target: schema.users.id,
-              set: testUser,
-            })
-            .returning();
+          // Create users table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              email VARCHAR UNIQUE,
+              first_name VARCHAR,
+              last_name VARCHAR,
+              profile_image_url VARCHAR,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
 
-          return res.status(200).json({ 
-            message: 'Database initialized successfully',
-            user,
-            status: 'connected'
-          });
+          // Create categories table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS categories (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              name VARCHAR NOT NULL,
+              icon VARCHAR NOT NULL,
+              parent_id UUID REFERENCES categories(id),
+              metadata JSONB,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+
+          // Create lists table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS lists (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              name VARCHAR NOT NULL,
+              description VARCHAR,
+              is_public BOOLEAN DEFAULT FALSE,
+              creator_id VARCHAR NOT NULL REFERENCES users(id),
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+
+          // Create list_participants table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS list_participants (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              list_id VARCHAR NOT NULL REFERENCES lists(id),
+              user_id VARCHAR NOT NULL REFERENCES users(id),
+              can_add BOOLEAN DEFAULT TRUE,
+              can_edit BOOLEAN DEFAULT FALSE,
+              can_delete BOOLEAN DEFAULT FALSE,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+
+          // Create list_items table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS list_items (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              list_id VARCHAR NOT NULL REFERENCES lists(id),
+              content VARCHAR NOT NULL,
+              note VARCHAR,
+              url VARCHAR,
+              category_id VARCHAR,
+              added_by_id VARCHAR NOT NULL REFERENCES users(id),
+              metadata JSONB,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+
+          // Create connections table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS connections (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              requester_id VARCHAR NOT NULL REFERENCES users(id),
+              addressee_id VARCHAR NOT NULL REFERENCES users(id),
+              status VARCHAR NOT NULL DEFAULT 'pending',
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+
+          // Create invitations table
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS invitations (
+              id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+              token VARCHAR UNIQUE NOT NULL,
+              sender_id VARCHAR NOT NULL REFERENCES users(id),
+              recipient_email VARCHAR NOT NULL,
+              status VARCHAR NOT NULL DEFAULT 'pending',
+              expires_at TIMESTAMP NOT NULL,
+              metadata JSONB,
+              created_at TIMESTAMP DEFAULT NOW(),
+              updated_at TIMESTAMP DEFAULT NOW()
+            );
+          `);
+
+          // Try to create a test user
+          const testUser = {
+            id: 'temp-user-id',
+            email: 'temp@example.com',
+            firstName: 'Temp',
+            lastName: 'User',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          try {
+            const [user] = await db
+              .insert(schema.users)
+              .values(testUser)
+              .onConflictDoUpdate({
+                target: schema.users.id,
+                set: testUser,
+              })
+              .returning();
+
+            return res.status(200).json({ 
+              message: 'Database initialized successfully',
+              user,
+              status: 'connected_and_tables_created'
+            });
+          } catch (userError) {
+            return res.status(500).json({ 
+              message: 'Tables created but user creation failed',
+              error: userError instanceof Error ? userError.message : 'User creation error',
+              status: 'tables_created_user_failed'
+            });
+          }
         } catch (tableError) {
           return res.status(500).json({ 
-            message: 'Database connected but tables may not exist',
-            error: tableError instanceof Error ? tableError.message : 'Table error',
-            status: 'connected_no_tables'
+            message: 'Database connected but table creation failed',
+            error: tableError instanceof Error ? tableError.message : 'Table creation error',
+            status: 'connected_table_creation_failed'
           });
         }
       } catch (connectionError) {
