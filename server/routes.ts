@@ -15,6 +15,7 @@ import {
 } from "@shared/schema";
 import { createInvitationServices, InvitationUtils } from "./invitationService";
 import { z } from "zod";
+import { requirePermission } from "./guards";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Import auth functions based on environment
@@ -165,8 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       try {
-        const { assertCanViewList } = await import('./rls');
-        await assertCanViewList(userId, id);
+        await requirePermission({ userId, listId: id }, 'view_list');
       } catch (e: any) {
         if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
         return res.status(403).json({ message: 'Forbidden' });
@@ -184,8 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       try {
-        const { assertCanEditList } = await import('./rls');
-        await assertCanEditList(userId, id);
+        await requirePermission({ userId, listId: id }, 'edit_list');
       } catch (e: any) {
         if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
         return res.status(403).json({ message: 'Forbidden' });
@@ -204,8 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       try {
-        const { assertCanEditList } = await import('./rls');
-        await assertCanEditList(userId, id);
+        await requirePermission({ userId, listId: id }, 'delete_list');
       } catch (e: any) {
         if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
         return res.status(403).json({ message: 'Forbidden' });
@@ -241,8 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const { id } = req.params;
       try {
-        const { assertCanAddItem } = await import('./rls');
-        await assertCanAddItem(userId, id);
+        await requirePermission({ userId, listId: id }, 'add_item');
       } catch (e: any) {
         if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
         return res.status(403).json({ message: 'Forbidden' });
@@ -272,6 +269,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/lists/:listId/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { listId, itemId } = req.params;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        await requirePermission({ userId, listId }, 'update_item');
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+
       const updates = insertListItemSchema.partial().parse(req.body);
 
       if (!updates.content && !updates.note && !updates.url && !updates.categoryId && !updates.metadata) {
@@ -299,8 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { listId, itemId } = req.params;
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       try {
-        const { assertCanDeleteItem } = await import('./rls');
-        await assertCanDeleteItem(userId, listId);
+        await requirePermission({ userId, listId }, 'delete_item');
       } catch (e: any) {
         if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
         return res.status(403).json({ message: 'Forbidden' });
