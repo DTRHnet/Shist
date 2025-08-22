@@ -87,7 +87,7 @@ describe('guards', () => {
 
   it('enforces private list view to owner only', async () => {
     const list = makeList({ id: listId, creatorId: ownerId, isPublic: false, participants: [participant(ownerId, { canAdd: true, canEdit: true, canDelete: true })]});
-    (storage.getListById as any).mockResolvedValueOnce(list);
+    (storage.getListById as any).mockResolvedValue(list);
     await expect(requirePermission({ userId: ownerId, listId }, 'view_list')).resolves.toBeUndefined();
     await expect(requirePermission({ userId: strangerId, listId }, 'view_list')).rejects.toThrowError('FORBIDDEN');
   });

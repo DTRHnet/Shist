@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -16,6 +16,7 @@ import {
 import { createInvitationServices, InvitationUtils } from "./invitationService";
 import { z } from "zod";
 import { requirePermission } from "./guards";
+import { toErrorResponse, badRequest } from "./errors";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Import auth functions based on environment
@@ -37,6 +38,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Health endpoint
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
   // Initialize default categories on first run
   await storage.initializeDefaultCategories();
 
@@ -48,8 +54,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
+    }
+  });
+
+  // Users routes (alias)
+  app.get('/api/users/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
+    }
+  });
+
+  // Webhooks
+  app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }) as any, async (req: any, res) => {
+    try {
+      // Intentionally simple: acknowledge receipt. Integrate signature verification as needed.
+      res.json({ received: true });
+    } catch (error) {
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -62,13 +91,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find addressee by email
       const addressee = await storage.getUserByEmail(addresseeEmail);
       if (!addressee) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: "User not found" } });
       }
 
       // Check if connection already exists
       const existingConnection = await storage.getConnectionByUsers(userId, addressee.id);
       if (existingConnection) {
-        return res.status(400).json({ message: "Connection already exists" });
+        return res.status(400).json({ error: { code: 'CONFLICT', message: "Connection already exists" } });
       }
 
       const connectionData = insertConnectionSchema.parse({
@@ -79,8 +108,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const connection = await storage.createConnection(connectionData);
       res.json(connection);
     } catch (error) {
-      console.error("Error creating connection:", error);
-      res.status(500).json({ message: "Failed to send invitation" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -90,8 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const connections = await storage.getUserConnections(userId);
       res.json(connections);
     } catch (error) {
-      console.error("Error fetching connections:", error);
-      res.status(500).json({ message: "Failed to fetch connections" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -101,8 +130,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invitations = await storage.getPendingInvitations(userId);
       res.json(invitations);
     } catch (error) {
-      console.error("Error fetching pending invitations:", error);
-      res.status(500).json({ message: "Failed to fetch pending invitations" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -112,14 +141,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status } = req.body;
       
       if (!['accepted', 'rejected'].includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: "Invalid status" } });
       }
 
       const connection = await storage.updateConnectionStatus(id, status);
       res.json(connection);
     } catch (error) {
-      console.error("Error updating connection status:", error);
-      res.status(500).json({ message: "Failed to update connection status" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -145,8 +174,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(list);
     } catch (error) {
-      console.error("Error creating list:", error);
-      res.status(500).json({ message: "Failed to create list" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -156,8 +185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lists = await storage.getUserLists(userId);
       res.json(lists);
     } catch (error) {
-      console.error("Error fetching lists:", error);
-      res.status(500).json({ message: "Failed to fetch lists" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -168,14 +197,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await requirePermission({ userId, listId: id }, 'view_list');
       } catch (e: any) {
-        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
-        return res.status(403).json({ message: 'Forbidden' });
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
       }
       const list = await storage.getListById(id);
       res.json(list);
     } catch (error) {
-      console.error("Error fetching list:", error);
-      res.status(500).json({ message: "Failed to fetch list" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -186,15 +215,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await requirePermission({ userId, listId: id }, 'edit_list');
       } catch (e: any) {
-        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
-        return res.status(403).json({ message: 'Forbidden' });
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
       }
       const updates = req.body;
       const list = await storage.updateList(id, updates);
       res.json(list);
     } catch (error) {
-      console.error("Error updating list:", error);
-      res.status(500).json({ message: "Failed to update list" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -205,14 +234,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await requirePermission({ userId, listId: id }, 'delete_list');
       } catch (e: any) {
-        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
-        return res.status(403).json({ message: 'Forbidden' });
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
       }
       await storage.deleteList(id);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting list:", error);
-      res.status(500).json({ message: "Failed to delete list" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -228,12 +257,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const participant = await storage.addListParticipant(participantData);
       res.json(participant);
     } catch (error) {
-      console.error("Error adding participant:", error);
-      res.status(500).json({ message: "Failed to add participant" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
-  // List item routes
+  // List item routes (nested)
   app.post('/api/lists/:id/items', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
@@ -241,8 +270,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await requirePermission({ userId, listId: id }, 'add_item');
       } catch (e: any) {
-        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
-        return res.status(403).json({ message: 'Forbidden' });
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
       }
       const itemData = insertListItemSchema.parse({
         listId: id,
@@ -261,8 +290,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(item);
     } catch (error) {
-      console.error("Error adding list item:", error);
-      res.status(500).json({ message: "Failed to add list item" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -273,14 +302,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await requirePermission({ userId, listId }, 'update_item');
       } catch (e: any) {
-        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
-        return res.status(403).json({ message: 'Forbidden' });
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
       }
 
       const updates = insertListItemSchema.partial().parse(req.body);
 
       if (!updates.content && !updates.note && !updates.url && !updates.categoryId && !updates.metadata) {
-        return res.status(400).json({ message: "At least one field is required to update" });
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: "At least one field is required to update" } });
       }
 
       const item = await storage.updateListItem(itemId, updates);
@@ -294,8 +323,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(item);
     } catch (error) {
-      console.error("Error updating list item:", error);
-      res.status(500).json({ message: "Failed to update list item" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -306,8 +335,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         await requirePermission({ userId, listId }, 'delete_item');
       } catch (e: any) {
-        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
-        return res.status(403).json({ message: 'Forbidden' });
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
       }
       await storage.deleteListItem(itemId);
       
@@ -320,8 +349,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting list item:", error);
-      res.status(500).json({ message: "Failed to delete list item" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
+    }
+  });
+
+  // Items routes (top-level)
+  app.post('/api/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      const data = insertListItemSchema.parse({ ...req.body, addedById: userId });
+      try {
+        await requirePermission({ userId, listId: data.listId }, 'add_item');
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+      }
+      const item = await storage.addListItem(data);
+      broadcastToList(data.listId, { type: 'item_added', listId: data.listId, item });
+      res.json(item);
+    } catch (error) {
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
+    }
+  });
+
+  app.patch('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      // Need listId for guard. Require it in body.
+      const parsed = insertListItemSchema.partial().extend({ listId: z.string().uuid() }).parse(req.body);
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        await requirePermission({ userId, listId: parsed.listId! }, 'update_item');
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+      }
+      if (!parsed.content && !parsed.note && !parsed.url && !parsed.categoryId && !parsed.metadata) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: "At least one field is required to update" } });
+      }
+      const item = await storage.updateListItem(itemId, parsed);
+      broadcastToList(parsed.listId!, { type: 'item_updated', listId: parsed.listId!, item });
+      res.json(item);
+    } catch (error) {
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
+    }
+  });
+
+  app.delete('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const body = z.object({ listId: z.string().uuid() }).parse(req.body);
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        await requirePermission({ userId, listId: body.listId }, 'delete_item');
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'List not found' } });
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Forbidden' } });
+      }
+      await storage.deleteListItem(itemId);
+      broadcastToList(body.listId, { type: 'item_deleted', listId: body.listId, itemId });
+      res.json({ success: true });
+    } catch (error) {
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -331,8 +424,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categories = await storage.getCategories();
       res.json(categories);
     } catch (error) {
-      console.error("Error fetching categories:", error);
-      res.status(500).json({ message: "Failed to fetch categories" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -342,13 +435,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const category = await storage.getCategoryById(categoryId);
       
       if (!category) {
-        return res.status(404).json({ message: "Category not found" });
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: "Category not found" } });
       }
       
       res.json(category);
     } catch (error) {
-      console.error("Error fetching category:", error);
-      res.status(500).json({ message: "Failed to fetch category" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -358,8 +451,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const category = await storage.createCategory(categoryData);
       res.json(category);
     } catch (error) {
-      console.error("Error creating category:", error);
-      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid category data" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -386,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get inviter details for sending
       const inviter = await storage.getUser(userId);
       if (!inviter) {
-        return res.status(404).json({ message: "User not found" });
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: "User not found" } });
       }
 
       const inviterName = inviter.firstName 
@@ -430,8 +523,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(invitation);
     } catch (error) {
-      console.error("Error creating invitation:", error);
-      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid invitation data" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -442,8 +535,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invitations = await storage.getUserInvitations(userId);
       res.json(invitations);
     } catch (error) {
-      console.error("Error fetching received invitations:", error);
-      res.status(500).json({ message: "Failed to fetch invitations" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -454,8 +547,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invitations = await storage.getSentInvitations(userId);
       res.json(invitations);
     } catch (error) {
-      console.error("Error fetching sent invitations:", error);
-      res.status(500).json({ message: "Failed to fetch sent invitations" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -467,15 +560,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const invitation = await storage.getInvitationByToken(token);
       if (!invitation) {
-        return res.status(404).json({ message: "Invitation not found" });
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: "Invitation not found" } });
       }
 
       if (invitation.status !== 'pending') {
-        return res.status(400).json({ message: "Invitation is no longer valid" });
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: "Invitation is no longer valid" } });
       }
 
       if (new Date(invitation.expiresAt) < new Date()) {
-        return res.status(400).json({ message: "Invitation has expired" });
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: "Invitation has expired" } });
       }
 
       // Process the invitation based on type
@@ -511,8 +604,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Invitation accepted successfully" });
     } catch (error) {
-      console.error("Error accepting invitation:", error);
-      res.status(500).json({ message: "Failed to accept invitation" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -523,14 +616,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const invitation = await storage.getInvitationByToken(token);
       if (!invitation) {
-        return res.status(404).json({ message: "Invitation not found" });
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: "Invitation not found" } });
       }
 
       await storage.updateInvitationStatus(invitation.id, 'cancelled');
       res.json({ message: "Invitation declined" });
     } catch (error) {
-      console.error("Error declining invitation:", error);
-      res.status(500).json({ message: "Failed to decline invitation" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -565,8 +658,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      console.error("Error handling invitation:", error);
-      res.status(500).json({ error: 'Server error' });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -587,8 +680,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return public list data
       res.json({ list });
     } catch (error) {
-      console.error("Error fetching public list:", error);
-      res.status(500).json({ error: 'Server error' });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
@@ -598,8 +691,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.expireOldInvitations();
       res.json({ message: "Expired invitations cleaned up" });
     } catch (error) {
-      console.error("Error cleaning up invitations:", error);
-      res.status(500).json({ message: "Failed to cleanup invitations" });
+      const { status, body } = toErrorResponse(error);
+      res.status(status).json(body);
     }
   });
 
