@@ -106,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         // Create tables using Drizzle's migrate function
         try {
-          // Create users table
+          // Create users table first (no dependencies)
           await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
               id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -119,18 +119,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             );
           `);
 
-          // Create categories table
+          // Create categories table without the self-reference first
           await pool.query(`
             CREATE TABLE IF NOT EXISTS categories (
               id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
               name VARCHAR NOT NULL,
               icon VARCHAR NOT NULL,
-              parent_id UUID REFERENCES categories(id),
+              parent_id VARCHAR,
               metadata JSONB,
               created_at TIMESTAMP DEFAULT NOW(),
               updated_at TIMESTAMP DEFAULT NOW()
             );
           `);
+
+          // Add the self-referencing foreign key constraint after the table exists
+          try {
+            await pool.query(`
+              ALTER TABLE categories 
+              ADD CONSTRAINT categories_parent_id_fkey 
+              FOREIGN KEY (parent_id) REFERENCES categories(id);
+            `);
+          } catch (constraintError) {
+            // Constraint might already exist, ignore the error
+            console.log('Foreign key constraint may already exist:', constraintError);
+          }
 
           // Create lists table
           await pool.query(`
@@ -169,7 +181,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               url VARCHAR,
               category_id VARCHAR,
               added_by_id VARCHAR NOT NULL REFERENCES users(id),
-              metadata JSONB,
               created_at TIMESTAMP DEFAULT NOW(),
               updated_at TIMESTAMP DEFAULT NOW()
             );
