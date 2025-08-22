@@ -5,7 +5,26 @@ import { useEffect } from "react";
 // Check if we're in local development mode
 const isLocalDev = !import.meta.env.VITE_REPL_ID || import.meta.env.VITE_LOCAL_DEV === 'true';
 
+// TEMPORARY: Mock user to bypass authentication
+const mockUser = {
+  id: "temp-user-id",
+  email: "temp@example.com",
+  firstName: "Temp",
+  lastName: "User",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 export function useAuth() {
+  // TEMPORARY: Bypass authentication - always return mock user
+  return {
+    user: mockUser,
+    isLoading: false,
+    isAuthenticated: true,
+  };
+
+  // Original authentication code (commented out)
+  /*
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/user"],
     retry: false,
@@ -35,4 +54,5 @@ export function useAuth() {
     isLoading: isLoading || autoLoginMutation.isPending,
     isAuthenticated: !!user,
   };
+  */
 }
