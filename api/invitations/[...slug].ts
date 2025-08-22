@@ -6,7 +6,7 @@ import ws from "ws";
 import { pgTable, varchar, timestamp, jsonb, uuid, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { ensureDbInitialized } from '../shared/db-init';
+import { ensureDbInitialized } from './shared/db-init';
 
 neonConfig.webSocketConstructor = ws;
 

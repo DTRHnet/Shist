@@ -128,7 +128,12 @@ async function ensureDefaultUser() {
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
-      throw new Error('Default user not found');
+      await createUser({
+        id: defaultUserId,
+        email: 'kbs.bradley88@gmail.com',
+        firstName: 'KBS',
+        lastName: 'Bradley',
+      });
     }
     
     return defaultUserId;
