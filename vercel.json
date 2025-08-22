@@ -2,11 +2,11 @@
   "version": 2,
   "buildCommand": "npm run vercel:build",
   "outputDirectory": "dist/public",
+  "regions": ["iad1", "sfo1"],
   "functions": {
     "dist/index.js": {
       "memory": 1024,
-      "maxDuration": 10,
-      "regions": ["iad1", "sfo1"]
+      "maxDuration": 10
     }
   },
   "routes": [
