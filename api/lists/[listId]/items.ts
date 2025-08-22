@@ -5,7 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import ws from "ws";
 import { pgTable, varchar, timestamp, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { ensureDbInitialized } from '../shared/db-init';
+import { ensureDbInitialized } from '../../shared/db-init';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -128,7 +128,12 @@ async function ensureDefaultUser() {
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {
-      throw new Error('Default user not found');
+      await createUser({
+        id: defaultUserId,
+        email: 'kbs.bradley88@gmail.com',
+        firstName: 'KBS',
+        lastName: 'Bradley',
+      });
     }
     
     return defaultUserId;
