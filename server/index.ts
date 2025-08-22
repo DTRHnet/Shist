@@ -37,6 +37,7 @@ app.use((req, res, next) => {
 });
 
 // ✅ Register your routes normally
+import('./authRoutes').then(({ mountAuthRoutes }) => mountAuthRoutes(app));
 registerRoutes(app);
 
 // ⚠️ DO NOT app.listen() on Vercel

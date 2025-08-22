@@ -163,12 +163,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/lists/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const list = await storage.getListById(id);
-      
-      if (!list) {
-        return res.status(404).json({ message: "List not found" });
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        const { assertCanViewList } = await import('./rls');
+        await assertCanViewList(userId, id);
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
+        return res.status(403).json({ message: 'Forbidden' });
       }
-
+      const list = await storage.getListById(id);
       res.json(list);
     } catch (error) {
       console.error("Error fetching list:", error);
@@ -179,8 +182,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/lists/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        const { assertCanEditList } = await import('./rls');
+        await assertCanEditList(userId, id);
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
+        return res.status(403).json({ message: 'Forbidden' });
+      }
       const updates = req.body;
-      
       const list = await storage.updateList(id, updates);
       res.json(list);
     } catch (error) {
@@ -192,6 +202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/lists/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        const { assertCanEditList } = await import('./rls');
+        await assertCanEditList(userId, id);
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
+        return res.status(403).json({ message: 'Forbidden' });
+      }
       await storage.deleteList(id);
       res.json({ success: true });
     } catch (error) {
@@ -222,7 +240,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims ? req.user.claims.sub : req.user.id;
       const { id } = req.params;
-      
+      try {
+        const { assertCanAddItem } = await import('./rls');
+        await assertCanAddItem(userId, id);
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
+        return res.status(403).json({ message: 'Forbidden' });
+      }
       const itemData = insertListItemSchema.parse({
         listId: id,
         addedById: userId,
@@ -273,6 +297,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/lists/:listId/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { listId, itemId } = req.params;
+      const userId = req.user.claims ? req.user.claims.sub : req.user.id;
+      try {
+        const { assertCanDeleteItem } = await import('./rls');
+        await assertCanDeleteItem(userId, listId);
+      } catch (e: any) {
+        if (e?.message === 'NOT_FOUND') return res.status(404).json({ message: 'List not found' });
+        return res.status(403).json({ message: 'Forbidden' });
+      }
       await storage.deleteListItem(itemId);
       
       // Broadcast to WebSocket clients
@@ -460,7 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateConnectionStatus(existingConnection.id, 'accepted');
         }
       } else if (invitation.invitationType === 'list' && invitation.listId) {
-        // Add user to the list
+        // Add user to the list with default VIEWER role (canAdd true)
         await storage.addListParticipant({
           listId: invitation.listId,
           userId: userId,
