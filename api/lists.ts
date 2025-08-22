@@ -48,7 +48,6 @@ const listItems = pgTable("list_items", {
   url: varchar("url"),
   categoryId: varchar("category_id"),
   addedById: varchar("added_by_id").notNull().references(() => users.id),
-  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
