@@ -34,11 +34,7 @@ export function InviteModal({ isOpen, onClose, lists = [] }: InviteModalProps) {
       invitationType: string;
       listId?: string;
     }) => {
-      return await apiRequest("/api/invitations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/invitations", data);
     },
     onSuccess: () => {
       toast({

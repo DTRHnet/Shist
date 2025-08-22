@@ -42,7 +42,7 @@ export function EnhancedListItem({ item, listId, canEdit = true, canDelete = tru
   const queryClient = useQueryClient();
 
   // Fetch categories for selection
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [] } = useQuery<CategoryWithSubcategories[]>({
     queryKey: ["/api/categories"],
   });
 

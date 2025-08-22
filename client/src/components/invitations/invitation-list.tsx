@@ -25,7 +25,7 @@ interface InvitationListProps {
 }
 
 export function InvitationList({ type }: InvitationListProps) {
-  const { data: invitations = [], isLoading } = useQuery({
+  const { data: invitations = [], isLoading } = useQuery<InvitationWithDetails[]>({
     queryKey: [`/api/invitations/${type}`],
   });
 
@@ -34,9 +34,7 @@ export function InvitationList({ type }: InvitationListProps) {
 
   const acceptMutation = useMutation({
     mutationFn: async (token: string) => {
-      return await apiRequest(`/api/invitations/accept/${token}`, {
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/invitations/accept/${token}`);
     },
     onSuccess: () => {
       toast({
@@ -58,9 +56,7 @@ export function InvitationList({ type }: InvitationListProps) {
 
   const declineMutation = useMutation({
     mutationFn: async (token: string) => {
-      return await apiRequest(`/api/invitations/decline/${token}`, {
-        method: "POST",
-      });
+      return await apiRequest("POST", `/api/invitations/decline/${token}`);
     },
     onSuccess: () => {
       toast({
@@ -187,7 +183,7 @@ export function InvitationList({ type }: InvitationListProps) {
               )}
 
               <p className="text-xs text-gray-500">
-                Sent {formatDistanceToNow(new Date(invitation.sentAt || invitation.createdAt))} ago
+                Sent {formatDistanceToNow(new Date(invitation.sentAt || invitation.createdAt || new Date()))} ago
                 {isExpired && " • Expired"}
               </p>
 

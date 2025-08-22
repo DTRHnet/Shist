@@ -28,7 +28,7 @@ export function AddItemForm({ listId, onClose }: AddItemFormProps) {
   const queryClient = useQueryClient();
 
   // Fetch categories for selection
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [] } = useQuery<CategoryWithSubcategories[]>({
     queryKey: ["/api/categories"],
   });
 

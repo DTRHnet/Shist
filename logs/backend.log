@@ -1,0 +1,36 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+Using local authentication for development
+/mnt/c/Users/kbsbr/Shist/server/storage.ts:492
+    const existingCategories = await db.select().from(categories).limit(1);
+                                        ^
+
+
+TypeError: Cannot read properties of undefined (reading 'select')
+    at DatabaseStorage.initializeDefaultCategories (/mnt/c/Users/kbsbr/Shist/server/storage.ts:492:41)
+    at registerRoutes (/mnt/c/Users/kbsbr/Shist/server/routes.ts:40:17)
+
+Node.js v20.19.4
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+Using local authentication for development
+/mnt/c/Users/kbsbr/Shist/server/storage.ts:492
+    const existingCategories = await db.select().from(categories).limit(1);
+                                        ^
+
+
+TypeError: Cannot read properties of undefined (reading 'select')
+    at DatabaseStorage.initializeDefaultCategories (/mnt/c/Users/kbsbr/Shist/server/storage.ts:492:41)
+    at registerRoutes (/mnt/c/Users/kbsbr/Shist/server/routes.ts:40:17)
+
+Node.js v20.19.4
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+Using local authentication for development
+/mnt/c/Users/kbsbr/Shist/server/storage.ts:492
+    const existingCategories = await db.select().from(categories).limit(1);
+                                        ^
+
+
+TypeError: Cannot read properties of undefined (reading 'select')
+    at DatabaseStorage.initializeDefaultCategories (/mnt/c/Users/kbsbr/Shist/server/storage.ts:492:41)
+    at registerRoutes (/mnt/c/Users/kbsbr/Shist/server/routes.ts:40:17)
+
+Node.js v20.19.4

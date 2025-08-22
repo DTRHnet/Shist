@@ -89,7 +89,7 @@ export const categories = pgTable("categories", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   icon: varchar("icon").notNull(), // Lucide icon name
-  parentId: uuid("parent_id").references(() => categories.id), // For subcategories
+  parentId: uuid("parent_id").references((): any => categories.id), // For subcategories
   metadata: jsonb("metadata"), // Additional category-specific data
   createdAt: timestamp("created_at").defaultNow(),
 });
