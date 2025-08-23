@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String?   @unique
+  firstName        String?   @map("first_name")
+  lastName         String?   @map("last_name")
+  profileImageUrl  String?   @map("profile_image_url")
+  isPremium        Boolean   @default(false) @map("is_premium")
+  createdAt        DateTime? @default(now()) @map("created_at")
+  updatedAt        DateTime? @default(now()) @map("updated_at")
+
+  // relations
+  createdLists     List[]    @relation("UserToList")
+  memberships      ListMember[]
+  itemsAdded       ListItem[] @relation("UserAddedItems")
+  invitationsSent  Invitation[] @relation("UserInvitations")
+  profile          Profile?
+  accounts         Account[]
+  sessions         SessionAuth[]
+  subscriptions    Subscription[]
+  adPreference     AdPreference?
+  auditLogs        AuditLog[]
+
+  @@map("users")
+  @@index([updatedAt])
+}
+
+model Profile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid @map("user_id")
+  bio       String?
+  phone     String?
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("profiles")
+}
+
+model List {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  isPublic    Boolean   @default(false) @map("is_public")
+  creatorId   String    @db.Uuid @map("creator_id")
+  createdAt   DateTime? @default(now()) @map("created_at")
+  updatedAt   DateTime? @default(now()) @map("updated_at")
+
+  creator     User      @relation("UserToList", fields: [creatorId], references: [id])
+  members     ListMember[]
+  items       ListItem[]
+  invitations Invitation[]
+
+  @@map("lists")
+  @@index([creatorId])
+  @@index([isPublic, updatedAt])
+  @@index([updatedAt])
+}
+
+model ListMember {
+  listId    String   @db.Uuid @map("list_id")
+  userId    String   @db.Uuid @map("user_id")
+  role      ListRole @default(VIEWER)
+  canAdd    Boolean  @default(true) @map("can_add")
+  canEdit   Boolean  @default(false) @map("can_edit")
+  canDelete Boolean  @default(false) @map("can_delete")
+  joinedAt  DateTime? @default(now()) @map("joined_at")
+
+  list      List     @relation(fields: [listId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@id([listId, userId])
+  @@map("list_participants")
+  @@index([userId])
+  @@index([listId])
+  @@index([role])
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  icon      String
+  parentId  String?  @db.Uuid @map("parent_id")
+  metadata  Json?
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  parent    Category? @relation("CategoryToSubcategories", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToSubcategories")
+  items     ListItem[]
+
+  @@map("categories")
+  @@index([parentId])
+}
+
+model ListItem {
+  id         String    @id @default(uuid()) @db.Uuid
+  listId     String    @db.Uuid @map("list_id")
+  content    String
+  note       String?
+  categoryId String?   @db.Uuid @map("category_id")
+  url        String?
+  metadata   Json?
+  addedById  String    @db.Uuid @map("added_by_id")
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @default(now()) @map("updated_at")
+
+  list       List      @relation(fields: [listId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id])
+  addedBy    User      @relation("UserAddedItems", fields: [addedById], references: [id])
+
+  @@map("list_items")
+  @@index([listId])
+  @@index([categoryId])
+  @@index([addedById])
+}
+
+model Invitation {
+  id             String           @id @default(uuid()) @db.Uuid
+  inviterId      String           @db.Uuid @map("inviter_id")
+  recipientEmail String           @map("recipient_email")
+  listId         String?          @db.Uuid @map("list_id")
+  status         InvitationStatus @default(PENDING)
+  token          String           @unique
+  expiresAt      DateTime         @map("expires_at")
+  sentAt         DateTime?        @default(now()) @map("sent_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime?        @default(now()) @map("created_at")
+
+  inviter        User             @relation("UserInvitations", fields: [inviterId], references: [id])
+  list           List?            @relation(fields: [listId], references: [id])
+
+  @@map("invitations")
+  @@index([inviterId])
+  @@index([recipientEmail])
+  @@index([status])
+}
+
+// Auth.js compatible tables
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user              User    @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+  @@index([userId])
+}
+
+model SessionAuth {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @db.Uuid @map("user_id")
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@map("sessions_auth")
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Subscription {
+  id                    String              @id @default(uuid()) @db.Uuid
+  userId                String              @db.Uuid @map("user_id")
+  stripeCustomerId      String              @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?             @unique @map("stripe_subscription_id")
+  status                SubscriptionStatus
+  currentPeriodEnd      DateTime?           @map("current_period_end")
+  cancelAtPeriodEnd     Boolean?            @default(false) @map("cancel_at_period_end")
+
+  user                  User                @relation(fields: [userId], references: [id])
+
+  @@map("subscriptions")
+  @@index([userId])
+  @@index([status])
+}
+
+model AdPreference {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @db.Uuid @map("user_id")
+  showPersonalized   Boolean  @default(false) @map("show_personalized")
+  lastAdShownAt      DateTime?
+
+  user               User     @relation(fields: [userId], references: [id])
+
+  @@map("ad_preferences")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+  @@index([userId])
+  @@index([entityType, entityId])
+}
+
+enum ListRole {
+  VIEWER
+  EDITOR
+  OWNER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  PAST_DUE
+}

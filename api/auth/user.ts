@@ -1,60 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { eq } from 'drizzle-orm';
-import * as ws from "ws";
-import { pgTable, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-import { ensureDbInitialized } from '../../shared/db-init';
+import { PrismaClient } from '@prisma/client';
 
-neonConfig.webSocketConstructor = ws;
-
-// Inline schema definitions
-const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-const schema = { users };
-
-let db: any;
-
-async function getDb() {
-  if (!db) {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL must be set");
-    }
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    await ensureDbInitialized(pool);
-    db = drizzle({ client: pool, schema });
-  }
-  return db;
-}
+const prisma = new PrismaClient();
 
 async function createUser(userData: any) {
-  const database = await getDb();
-  const [user] = await database
-    .insert(schema.users)
-    .values(userData)
-    .onConflictDoUpdate({
-      target: schema.users.id,
-      set: {
-        ...userData,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
+  const user = await prisma.user.upsert({
+    where: { id: userData.id },
+    update: {
+      ...userData,
+      updatedAt: new Date(),
+    },
+    create: userData,
+  });
   return user;
 }
 
 async function getUser(id: string) {
-  const database = await getDb();
-  const [user] = await database.select().from(schema.users).where(eq(schema.users.id, id));
+  const user = await prisma.user.findUnique({
+    where: { id },
+  });
   return user;
 }
 
@@ -107,5 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: 'Internal server error',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+  } finally {
+    await prisma.$disconnect();
   }
 }
