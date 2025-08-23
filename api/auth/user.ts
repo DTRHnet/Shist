@@ -2,10 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
-import ws from "ws";
+import * as ws from "ws";
 import { pgTable, varchar, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { ensureDbInitialized } from '../shared/db-init';
+import { ensureDbInitialized } from '../../shared/db-init';
 
 neonConfig.webSocketConstructor = ws;
 
