@@ -31,6 +31,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  adPreference: varchar("ad_preference").notNull().default('show'), // 'show' | 'hide'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -107,6 +108,24 @@ export const listItems = pgTable("list_items", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Subscriptions (Stripe)
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: varchar("provider").notNull().default('stripe'),
+  customerId: varchar("customer_id").notNull(),
+  subscriptionId: varchar("subscription_id"),
+  priceId: varchar("price_id"),
+  status: varchar("status").notNull().default('inactive'), // active, trialing, past_due, canceled, unpaid, incomplete
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  currentPeriodEnd: timestamp("current_period_end"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index('IDX_sub_customer').on(table.customerId),
+  index('IDX_sub_user').on(table.userId),
+]);
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -225,6 +244,12 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   createdAt: true,
 });
 
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -240,6 +265,8 @@ export type Invitation = typeof invitations.$inferSelect;
 export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 
 // Extended types for API responses
 export type ListWithDetails = List & {

@@ -11,10 +11,12 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Lists from "@/pages/lists";
 import Connections from "@/pages/connections";
-import Invitations from "@/pages/invitations";
-import Settings from "@/pages/settings";
+import { lazy, Suspense } from "react";
+const Invitations = lazy(() => import("@/pages/invitations"));
+const Settings = lazy(() => import("@/pages/settings"));
 import NotFound from "@/pages/not-found";
 import LocalLogin from "@/pages/local-login";
+import Error500 from "@/pages/error-500";
 
 // Check if we're in local development mode
 const isLocalDev = !import.meta.env.VITE_REPL_ID || import.meta.env.VITE_LOCAL_DEV === 'true';
@@ -55,10 +57,13 @@ function Router() {
             <Route path="/" component={Home} />
             <Route path="/lists" component={Lists} />
             <Route path="/connections" component={Connections} />
-            <Route path="/invitations" component={Invitations} />
-            <Route path="/settings" component={Settings} />
+            <Suspense fallback={<div className="p-4">Loading...</div>}>
+              <Route path="/invitations" component={Invitations} />
+              <Route path="/settings" component={Settings} />
+            </Suspense>
           </>
         )}
+        <Route path="/error" component={Error500} />
         <Route component={NotFound} />
       </Switch>
       

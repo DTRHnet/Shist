@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint • Typecheck • Test • Prisma Generate • Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Prisma generate
+        run: npm run prisma:generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: dist/public
+
+  preview:
+    name: Preview Deploy (Vercel)
+    if: ${{ github.event_name == 'pull_request' && secrets.VERCEL_TOKEN }}
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (local)
+        run: npm run build
+
+      - name: Deploy to Vercel (Preview)
+        run: npx vercel --token ${{ secrets.VERCEL_TOKEN }} --scope ${{ secrets.VERCEL_ORG_ID }} --project ${{ secrets.VERCEL_PROJECT_ID }} --prod=false --confirm
+
+      - name: Output Preview URL
+        run: |
+          echo "Preview deployment triggered. Check Vercel dashboard for the preview URL."
+
+  migration-gate:
+    name: Migration Gating
+    needs: ci
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate migrations to deploy stage
+        run: |
+          echo "Migrations are applied during deploy via the postdeploy script (npm run postdeploy)."
+          echo "Do not run migrations in CI."
