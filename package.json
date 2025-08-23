@@ -95,7 +95,7 @@
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0",
     "@prisma/client": "^5.18.0"
-  }
+  },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.2.8",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
