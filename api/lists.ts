@@ -5,7 +5,7 @@ import { eq, or } from 'drizzle-orm';
 import ws from "ws";
 import { pgTable, varchar, timestamp, jsonb, uuid, index, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { ensureDbInitialized } from './shared/db-init.ts';
+import { ensureDbInitialized } from './shared/init-db.ts';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -243,5 +243,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
+
 
 
