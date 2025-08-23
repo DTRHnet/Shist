@@ -14,7 +14,7 @@ async function createDefaultAccount() {
     
     if (!existingUser) {
       await storage.upsertUser({
-        id: 'default-user',
+        id: '00000000-0000-0000-0000-000000000001',
         email: defaultEmail,
         firstName: 'Demo',
         lastName: 'User',
@@ -60,7 +60,7 @@ export async function setupLocalAuth(app: Express) {
       
       if (!user) {
         user = await storage.upsertUser({
-          id: 'default-user',
+          id: '00000000-0000-0000-0000-000000000001',
           email: defaultEmail,
           firstName: 'Demo',
           lastName: 'User',

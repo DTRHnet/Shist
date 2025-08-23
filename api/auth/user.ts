@@ -25,7 +25,7 @@ async function getUser(id: string) {
 // Ensure default user exists
 async function ensureDefaultUser() {
   try {
-    const defaultUserId = 'default-user-id';
+    const defaultUserId = '00000000-0000-0000-0000-000000000001';
     const defaultUser = await getUser(defaultUserId);
     
     if (!defaultUser) {

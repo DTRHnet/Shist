@@ -34,6 +34,9 @@ model User {
   subscriptions    Subscription[]
   adPreference     AdPreference?
   auditLogs        AuditLog[]
+  // Connection relations
+  requestedConnections Connection[] @relation("UserRequestedConnections")
+  receivedConnections  Connection[] @relation("UserReceivedConnections")
 
   @@map("users")
   @@index([updatedAt])
@@ -232,6 +235,23 @@ model AuditLog {
   @@map("audit_logs")
   @@index([userId])
   @@index([entityType, entityId])
+}
+
+model Connection {
+  id           String   @id @default(uuid()) @db.Uuid
+  requesterId  String   @db.Uuid @map("requester_id")
+  addresseeId  String   @db.Uuid @map("addressee_id")
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  requester    User     @relation("UserRequestedConnections", fields: [requesterId], references: [id])
+  addressee    User     @relation("UserReceivedConnections", fields: [addresseeId], references: [id])
+
+  @@map("connections")
+  @@index([requesterId])
+  @@index([addresseeId])
+  @@index([status])
 }
 
 enum ListRole {

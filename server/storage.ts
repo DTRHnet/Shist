@@ -1,59 +1,27 @@
-import {
-  users,
-  connections,
-  lists,
-  listParticipants,
-  listItems,
-  invitations,
-  categories,
-  sessions,
-  type User,
-  type UpsertUser,
-  type Connection,
-  type InsertConnection,
-  type List,
-  type InsertList,
-  type ListParticipant,
-  type InsertListParticipant,
-  type ListItem,
-  type InsertListItem,
-  type Invitation,
-  type InsertInvitation,
-  type Category,
-  type InsertCategory,
-  type ListWithDetails,
-  type UserConnection,
-  type InvitationWithDetails,
-  type CategoryWithSubcategories,
-  type ListItemWithDetails,
+import { PrismaClient } from '@prisma/client';
+import type {
+  User,
+  UpsertUser,
+  Connection,
+  InsertConnection,
+  List,
+  InsertList,
+  ListParticipant,
+  InsertListParticipant,
+  ListItem,
+  InsertListItem,
+  Invitation,
+  InsertInvitation,
+  Category,
+  InsertCategory,
+  ListWithDetails,
+  UserConnection,
+  InvitationWithDetails,
+  CategoryWithSubcategories,
+  ListItemWithDetails,
 } from "@shared/schema";
-// Use appropriate database connection based on environment
-//const isLocalDev = !process.env.REPL_ID || process.env.LOCAL_DEV === 'true' || process.env.NODE_ENV === 'development';
 
-async function initializeDatabase() {
-  /*if (isLocalDev) {
-    console.log("Using local PostgreSQL database");
-    const { db: localDb } = await import("./localDb");
-    return localDb;
-  } else {
-    console.log("Using Neon serverless database");
-    const { db: neonDb } = await import("./db");
-    return neonDb;
-  }*/
-}
-
-import { eq, and, or, desc, sql } from "drizzle-orm";
-
-// Initialize database connection
-let db: any;
-
-async function initializeDb() {
-  if (!db) {
-    const dbPromise = initializeDatabase();
-    db = await dbPromise;
-  }
-  return db;
-}
+const prisma = new PrismaClient();
 
 export interface IStorage {
   // User operations - mandatory for Replit Auth
@@ -107,404 +75,370 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
+    return user as User | undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+    return user as User | undefined;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    const user = await prisma.user.upsert({
+      where: { id: userData.id },
+      update: {
+        ...userData,
+        updatedAt: new Date(),
+      },
+      create: userData,
+    });
+    return user as User;
   }
 
   // Connection operations
   async createConnection(connection: InsertConnection): Promise<Connection> {
-    const [newConnection] = await db
-      .insert(connections)
-      .values(connection)
-      .returning();
-    return newConnection;
+    const newConnection = await prisma.connection.create({
+      data: connection,
+    });
+    return newConnection as Connection;
   }
 
   async updateConnectionStatus(id: string, status: string): Promise<Connection> {
-    const [connection] = await db
-      .update(connections)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(connections.id, id))
-      .returning();
-    return connection;
+    const connection = await prisma.connection.update({
+      where: { id },
+      data: { status, updatedAt: new Date() },
+    });
+    return connection as Connection;
   }
 
   async getUserConnections(userId: string): Promise<UserConnection[]> {
-    // First get all accepted connections for the user
-    const userConnections = await db
-      .select()
-      .from(connections)
-      .where(
-        and(
-          or(
-            eq(connections.requesterId, userId),
-            eq(connections.addresseeId, userId)
-          ),
-          eq(connections.status, "accepted")
-        )
-      );
+    const userConnections = await prisma.connection.findMany({
+      where: {
+        OR: [
+          { requesterId: userId },
+          { addresseeId: userId },
+        ],
+        status: "accepted",
+      },
+      include: {
+        requester: true,
+        addressee: true,
+      },
+    });
 
-    // Then fetch user details for each connection
-    const result: UserConnection[] = [];
-    for (const connection of userConnections) {
-      const [requester] = await db.select().from(users).where(eq(users.id, connection.requesterId));
-      const [addressee] = await db.select().from(users).where(eq(users.id, connection.addresseeId));
-      
-      result.push({
-        ...connection,
-        requester: requester!,
-        addressee: addressee!,
-      });
-    }
-
-    return result;
+    return userConnections.map(conn => ({
+      ...conn,
+      requester: conn.requester!,
+      addressee: conn.addressee!,
+    })) as UserConnection[];
   }
 
   async getPendingInvitations(userId: string): Promise<UserConnection[]> {
-    // First get all pending invitations for the user
-    const pendingInvitations = await db
-      .select()
-      .from(connections)
-      .where(
-        and(
-          eq(connections.addresseeId, userId),
-          eq(connections.status, "pending")
-        )
-      );
+    const pendingInvitations = await prisma.connection.findMany({
+      where: {
+        addresseeId: userId,
+        status: "pending",
+      },
+      include: {
+        requester: true,
+        addressee: true,
+      },
+    });
 
-    // Then fetch user details for each invitation
-    const result: UserConnection[] = [];
-    for (const invitation of pendingInvitations) {
-      const [requester] = await db.select().from(users).where(eq(users.id, invitation.requesterId));
-      const [addressee] = await db.select().from(users).where(eq(users.id, invitation.addresseeId));
-      
-      result.push({
-        ...invitation,
-        requester: requester!,
-        addressee: addressee!,
-      });
-    }
-
-    return result;
+    return pendingInvitations.map(inv => ({
+      ...inv,
+      requester: inv.requester!,
+      addressee: inv.addressee!,
+    })) as UserConnection[];
   }
 
   async getConnectionByUsers(requesterId: string, addresseeId: string): Promise<Connection | undefined> {
-    const [connection] = await db
-      .select()
-      .from(connections)
-      .where(
-        or(
-          and(
-            eq(connections.requesterId, requesterId),
-            eq(connections.addresseeId, addresseeId)
-          ),
-          and(
-            eq(connections.requesterId, addresseeId),
-            eq(connections.addresseeId, requesterId)
-          )
-        )
-      );
-    return connection;
+    const connection = await prisma.connection.findFirst({
+      where: {
+        OR: [
+          {
+            requesterId,
+            addresseeId,
+          },
+          {
+            requesterId: addresseeId,
+            addresseeId: requesterId,
+          },
+        ],
+      },
+    });
+    return connection as Connection | undefined;
   }
 
   // List operations
   async createList(list: InsertList): Promise<List> {
-    const [newList] = await db
-      .insert(lists)
-      .values(list)
-      .returning();
-    return newList;
+    const newList = await prisma.list.create({
+      data: list,
+    });
+    return newList as List;
   }
 
   async getUserLists(userId: string): Promise<ListWithDetails[]> {
-    const userLists = await db
-      .select({
-        list: lists,
-        creator: users,
-        itemCount: sql<number>`count(${listItems.id})`.as('item_count'),
-      })
-      .from(lists)
-      .leftJoin(users, eq(lists.creatorId, users.id))
-      .leftJoin(listParticipants, eq(lists.id, listParticipants.listId))
-      .leftJoin(listItems, eq(lists.id, listItems.listId))
-      .where(
-        or(
-          eq(lists.creatorId, userId),
-          eq(listParticipants.userId, userId)
-        )
-      )
-      .groupBy(lists.id, users.id)
-      .orderBy(desc(lists.updatedAt));
+    const lists = await prisma.list.findMany({
+      where: {
+        OR: [
+          { creatorId: userId },
+          {
+            members: {
+              some: {
+                userId,
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        creator: true,
+        members: {
+          include: {
+            user: true,
+          },
+        },
+        items: {
+          include: {
+            category: true,
+            addedBy: true,
+          },
+        },
+      },
+    });
 
-    const result: ListWithDetails[] = [];
-    
-    for (const row of userLists) {
-      const participants = await db
-        .select()
-        .from(listParticipants)
-        .leftJoin(users, eq(listParticipants.userId, users.id))
-        .where(eq(listParticipants.listId, row.list.id));
-
-      const items = await db
-        .select()
-        .from(listItems)
-        .leftJoin(users, eq(listItems.addedById, users.id))
-        .where(eq(listItems.listId, row.list.id))
-        .orderBy(desc(listItems.createdAt));
-
-      result.push({
-        ...row.list,
-        creator: row.creator!,
-        participants: participants.map((p: any) => ({
-          ...p.list_participants,
-          user: p.users!,
-        })),
-        items: items.map((i: any) => ({
-          ...i.list_items,
-          addedBy: i.users!,
-        })),
-        itemCount: row.itemCount,
-        lastItem: items[0] ? {
-          ...items[0].list_items,
-          addedBy: items[0].users!,
-        } : undefined,
-      });
-    }
-
-    return result;
+    return lists.map(list => ({
+      ...list,
+      creator: list.creator!,
+      members: list.members.map(member => ({
+        ...member,
+        user: member.user!,
+      })),
+      items: list.items.map(item => ({
+        ...item,
+        category: item.category || undefined,
+        addedBy: item.addedBy!,
+      })),
+    })) as ListWithDetails[];
   }
 
   async getListById(id: string): Promise<ListWithDetails | undefined> {
-    const [listResult] = await db
-      .select()
-      .from(lists)
-      .leftJoin(users, eq(lists.creatorId, users.id))
-      .where(eq(lists.id, id));
+    const list = await prisma.list.findUnique({
+      where: { id },
+      include: {
+        creator: true,
+        members: {
+          include: {
+            user: true,
+          },
+        },
+        items: {
+          include: {
+            category: true,
+            addedBy: true,
+          },
+        },
+      },
+    });
 
-    if (!listResult) return undefined;
-
-    const participants = await db
-      .select()
-      .from(listParticipants)
-      .leftJoin(users, eq(listParticipants.userId, users.id))
-      .where(eq(listParticipants.listId, id));
-
-    const items = await db
-      .select()
-      .from(listItems)
-      .leftJoin(users, eq(listItems.addedById, users.id))
-      .where(eq(listItems.listId, id))
-      .orderBy(desc(listItems.createdAt));
+    if (!list) return undefined;
 
     return {
-      ...listResult.lists,
-      creator: listResult.users!,
-      participants: participants.map((p: any) => ({
-        ...p.list_participants,
-        user: p.users!,
+      ...list,
+      creator: list.creator!,
+      members: list.members.map(member => ({
+        ...member,
+        user: member.user!,
       })),
-      items: items.map((i: any) => ({
-        ...i.list_items,
-        addedBy: i.users!,
+      items: list.items.map(item => ({
+        ...item,
+        category: item.category || undefined,
+        addedBy: item.addedBy!,
       })),
-      itemCount: items.length,
-      lastItem: items[0] ? {
-        ...items[0].list_items,
-        addedBy: items[0].users!,
-      } : undefined,
-    };
+    } as ListWithDetails;
   }
 
   async updateList(id: string, updates: Partial<InsertList>): Promise<List> {
-    const [list] = await db
-      .update(lists)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(lists.id, id))
-      .returning();
-    return list;
+    const list = await prisma.list.update({
+      where: { id },
+      data: {
+        ...updates,
+        updatedAt: new Date(),
+      },
+    });
+    return list as List;
   }
 
   async deleteList(id: string): Promise<void> {
-    await db.delete(lists).where(eq(lists.id, id));
+    await prisma.list.delete({
+      where: { id },
+    });
   }
 
   // List participant operations
   async addListParticipant(participant: InsertListParticipant): Promise<ListParticipant> {
-    const [newParticipant] = await db
-      .insert(listParticipants)
-      .values(participant)
-      .returning();
-    return newParticipant;
+    const newParticipant = await prisma.listMember.upsert({
+      where: {
+        listId_userId: {
+          listId: participant.listId,
+          userId: participant.userId,
+        },
+      },
+      update: participant,
+      create: participant,
+    });
+    return newParticipant as ListParticipant;
   }
 
   async removeListParticipant(listId: string, userId: string): Promise<void> {
-    await db
-      .delete(listParticipants)
-      .where(
-        and(
-          eq(listParticipants.listId, listId),
-          eq(listParticipants.userId, userId)
-        )
-      );
+    await prisma.listMember.delete({
+      where: {
+        listId_userId: {
+          listId,
+          userId,
+        },
+      },
+    });
   }
 
   async updateParticipantPermissions(
-    listId: string, 
-    userId: string, 
+    listId: string,
+    userId: string,
     permissions: Partial<Pick<InsertListParticipant, 'canAdd' | 'canEdit' | 'canDelete'>>
   ): Promise<ListParticipant> {
-    const [participant] = await db
-      .update(listParticipants)
-      .set(permissions)
-      .where(
-        and(
-          eq(listParticipants.listId, listId),
-          eq(listParticipants.userId, userId)
-        )
-      )
-      .returning();
-    return participant;
+    const participant = await prisma.listMember.update({
+      where: {
+        listId_userId: {
+          listId,
+          userId,
+        },
+      },
+      data: permissions,
+    });
+    return participant as ListParticipant;
   }
 
   // List item operations
   async addListItem(item: InsertListItem): Promise<ListItemWithDetails> {
-    const [newItem] = await db
-      .insert(listItems)
-      .values(item)
-      .returning();
-
-    // Update list's updatedAt timestamp
-    await db
-      .update(lists)
-      .set({ updatedAt: new Date() })
-      .where(eq(lists.id, item.listId));
-
-    const [itemWithDetails] = await db
-      .select()
-      .from(listItems)
-      .leftJoin(users, eq(listItems.addedById, users.id))
-      .leftJoin(categories, eq(listItems.categoryId, categories.id))
-      .where(eq(listItems.id, newItem.id));
-
+    const newItem = await prisma.listItem.create({
+      data: item,
+      include: {
+        category: true,
+        addedBy: true,
+      },
+    });
     return {
-      ...itemWithDetails.list_items,
-      addedBy: itemWithDetails.users!,
-      category: itemWithDetails.categories || undefined,
-    };
+      ...newItem,
+      category: newItem.category || undefined,
+      addedBy: newItem.addedBy!,
+    } as ListItemWithDetails;
   }
 
   async updateListItem(id: string, updates: Partial<InsertListItem>): Promise<ListItem> {
-    const [item] = await db
-      .update(listItems)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(listItems.id, id))
-      .returning();
-    return item;
+    const item = await prisma.listItem.update({
+      where: { id },
+      data: {
+        ...updates,
+        updatedAt: new Date(),
+      },
+    });
+    return item as ListItem;
   }
 
   async deleteListItem(id: string): Promise<void> {
-    await db.delete(listItems).where(eq(listItems.id, id));
+    await prisma.listItem.delete({
+      where: { id },
+    });
   }
 
   async getListItems(listId: string): Promise<ListItemWithDetails[]> {
-    const items = await db
-      .select()
-      .from(listItems)
-      .leftJoin(users, eq(listItems.addedById, users.id))
-      .leftJoin(categories, eq(listItems.categoryId, categories.id))
-      .where(eq(listItems.listId, listId))
-      .orderBy(desc(listItems.createdAt));
+    const items = await prisma.listItem.findMany({
+      where: { listId },
+      include: {
+        category: true,
+        addedBy: true,
+      },
+    });
 
-    return items.map((item: any) => ({
-      ...item.list_items,
-      addedBy: item.users!,
-      category: item.categories || undefined,
-    }));
+    return items.map(item => ({
+      ...item,
+      category: item.category || undefined,
+      addedBy: item.addedBy!,
+    })) as ListItemWithDetails[];
   }
 
   // Category operations
   async createCategory(category: InsertCategory): Promise<Category> {
-    const [newCategory] = await db
-      .insert(categories)
-      .values(category)
-      .returning();
-    return newCategory;
+    const newCategory = await prisma.category.create({
+      data: category,
+    });
+    return newCategory as Category;
   }
 
   async getCategories(): Promise<CategoryWithSubcategories[]> {
-    const allCategories = await db
-      .select()
-      .from(categories)
-      .orderBy(categories.name);
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      include: {
+        children: true,
+      },
+    });
 
-    // Group categories with their subcategories
-    const mainCategories = allCategories.filter((cat: any) => !cat.parentId);
-    
-    return mainCategories.map((mainCat: any) => ({
-      ...mainCat,
-      subcategories: allCategories.filter((subCat: any) => subCat.parentId === mainCat.id)
-    }));
+    return categories.map(cat => ({
+      ...cat,
+      subcategories: cat.children,
+    })) as CategoryWithSubcategories[];
   }
 
   async getCategoryById(id: string): Promise<Category | undefined> {
-    const [category] = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.id, id));
-    return category;
+    const category = await prisma.category.findUnique({
+      where: { id },
+    });
+    return category as Category | undefined;
   }
 
   async updateCategory(id: string, updates: Partial<InsertCategory>): Promise<Category> {
-    const [category] = await db
-      .update(categories)
-      .set(updates)
-      .where(eq(categories.id, id))
-      .returning();
-    return category;
+    const category = await prisma.category.update({
+      where: { id },
+      data: updates,
+    });
+    return category as Category;
   }
 
   async deleteCategory(id: string): Promise<void> {
-    await db.delete(categories).where(eq(categories.id, id));
+    await prisma.category.delete({
+      where: { id },
+    });
   }
 
   async initializeDefaultCategories(): Promise<void> {
     // Check if categories already exist
-    const existingCategories = await db.select().from(categories).limit(1);
-    if (existingCategories.length > 0) return;
+    const existingCategories = await prisma.category.findFirst();
+    if (existingCategories) return;
 
     // Import and create default categories
     const { defaultCategories, musicSubcategories, foodSubcategories, movieSubcategories } = await import("./categories");
     
     // Insert main categories
-    const insertedCategories = await db
-      .insert(categories)
-      .values(defaultCategories)
-      .returning();
+    const insertedCategories = await prisma.category.createMany({
+      data: defaultCategories,
+    });
 
     // Find specific category IDs for subcategories
-    const musicCategory = insertedCategories.find((cat: any) => cat.name === "Music");
-    const foodCategory = insertedCategories.find((cat: any) => cat.name === "Food & Restaurants");
-    const movieCategory = insertedCategories.find((cat: any) => cat.name === "Movies");
+    const musicCategory = await prisma.category.findFirst({
+      where: { name: "Music" },
+    });
+    const foodCategory = await prisma.category.findFirst({
+      where: { name: "Food & Restaurants" },
+    });
+    const movieCategory = await prisma.category.findFirst({
+      where: { name: "Movies" },
+    });
 
     // Insert subcategories
     const subcategoriesToInsert = [];
@@ -520,112 +454,120 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (subcategoriesToInsert.length > 0) {
-      await db.insert(categories).values(subcategoriesToInsert);
+      await prisma.category.createMany({
+        data: subcategoriesToInsert,
+      });
     }
 
-    console.log(`Initialized ${insertedCategories.length} main categories and ${subcategoriesToInsert.length} subcategories`);
+    console.log(`Initialized ${defaultCategories.length} main categories and ${subcategoriesToInsert.length} subcategories`);
   }
 
   // Invitation operations
   async createInvitation(invitation: InsertInvitation & { token: string }): Promise<Invitation> {
-    const [newInvitation] = await db
-      .insert(invitations)
-      .values(invitation)
-      .returning();
-    return newInvitation;
+    const newInvitation = await prisma.invitation.create({
+      data: invitation,
+    });
+    return newInvitation as Invitation;
   }
 
   async getInvitationByToken(token: string): Promise<InvitationWithDetails | undefined> {
-    const [invitation] = await db
-      .select()
-      .from(invitations)
-      .leftJoin(users, eq(invitations.inviterId, users.id))
-      .leftJoin(lists, eq(invitations.listId, lists.id))
-      .where(eq(invitations.token, token));
+    const invitation = await prisma.invitation.findUnique({
+      where: { token },
+      include: {
+        inviter: true,
+        list: true,
+      },
+    });
 
     if (!invitation) return undefined;
 
     return {
-      ...invitation.invitations,
-      inviter: invitation.users!,
-      list: invitation.lists || undefined,
-    };
+      ...invitation,
+      inviter: invitation.inviter!,
+      list: invitation.list || undefined,
+    } as InvitationWithDetails;
   }
 
   async getUserInvitations(userId: string): Promise<InvitationWithDetails[]> {
-    // Get invitations by email/phone for the user
     const user = await this.getUser(userId);
     if (!user) return [];
 
-    const userInvitations = await db
-      .select()
-      .from(invitations)
-      .leftJoin(users, eq(invitations.inviterId, users.id))
-      .leftJoin(lists, eq(invitations.listId, lists.id))
-      .where(
-        and(
-          or(
-            eq(invitations.recipientEmail, user.email || ''),
-            eq(invitations.recipientPhone, user.email || '') // In case phone is stored in email field
-          ),
-          eq(invitations.status, 'pending'),
-          sql`${invitations.expiresAt} > NOW()`
-        )
-      )
-      .orderBy(desc(invitations.createdAt));
+    const userInvitations = await prisma.invitation.findMany({
+      where: {
+        recipientEmail: user.email || '',
+        status: 'PENDING',
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      include: {
+        inviter: true,
+        list: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
-    return userInvitations.map((inv: any) => ({
-      ...inv.invitations,
-      inviter: inv.users!,
-      list: inv.lists || undefined,
-    }));
+    return userInvitations.map(inv => ({
+      ...inv,
+      inviter: inv.inviter!,
+      list: inv.list || undefined,
+    })) as InvitationWithDetails[];
   }
 
   async getSentInvitations(userId: string): Promise<InvitationWithDetails[]> {
-    const sentInvitations = await db
-      .select()
-      .from(invitations)
-      .leftJoin(users, eq(invitations.inviterId, users.id))
-      .leftJoin(lists, eq(invitations.listId, lists.id))
-      .where(eq(invitations.inviterId, userId))
-      .orderBy(desc(invitations.createdAt));
+    const sentInvitations = await prisma.invitation.findMany({
+      where: {
+        inviterId: userId,
+      },
+      include: {
+        inviter: true,
+        list: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
-    return sentInvitations.map((inv: any) => ({
-      ...inv.invitations,
-      inviter: inv.users!,
-      list: inv.lists || undefined,
-    }));
+    return sentInvitations.map(inv => ({
+      ...inv,
+      inviter: inv.inviter!,
+      list: inv.list || undefined,
+    })) as InvitationWithDetails[];
   }
 
   async updateInvitationStatus(id: string, status: string, acceptedAt?: Date): Promise<Invitation> {
-    const [updatedInvitation] = await db
-      .update(invitations)
-      .set({ 
-        status, 
-        acceptedAt: acceptedAt || null 
-      })
-      .where(eq(invitations.id, id))
-      .returning();
-    return updatedInvitation;
+    const invitation = await prisma.invitation.update({
+      where: { id },
+      data: {
+        status: status as any,
+        acceptedAt,
+      },
+    });
+    return invitation as Invitation;
   }
 
   async deleteInvitation(id: string): Promise<void> {
-    await db
-      .delete(invitations)
-      .where(eq(invitations.id, id));
+    await prisma.invitation.delete({
+      where: { id },
+    });
   }
 
   async expireOldInvitations(): Promise<void> {
-    await db
-      .update(invitations)
-      .set({ status: 'expired' })
-      .where(
-        and(
-          eq(invitations.status, 'pending'),
-          sql`${invitations.expiresAt} < NOW()`
-        )
-      );
+    await prisma.invitation.updateMany({
+      where: {
+        expiresAt: {
+          lt: new Date(),
+        },
+        status: 'PENDING',
+      },
+      data: {
+        status: 'EXPIRED',
+      },
+    });
   }
 }
 
+// Export a singleton instance
 export const storage = new DatabaseStorage();
